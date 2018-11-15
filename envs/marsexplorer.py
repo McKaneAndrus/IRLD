@@ -8,12 +8,21 @@ DOWN = 1
 RIGHT = 2
 UP = 3
 NOOP = 4
+EXIT = 5
 
+# (x,y)
 DIRDICT = {(-1,0):0,
            (0,1):1,
            (1,0):2,
            (0,-1):3,
            (0,0):4}
+
+# (x, y)
+DIRARRAY = np.array([[-1,0],
+		   [0,1],
+           [1,0],
+           [0,-1],
+           [0,0]])
 
 
 MAPS = {
@@ -97,18 +106,21 @@ class MarsExplorerEnv(DiscreteEnv):
 
     metadata = {'render.modes': ['human', 'ansi']}
 
-    def __init__(self, tile_map, reward_map, texture_map, transition_dict={}, time_penalty=-0.001, seed=None):
+    def __init__(self, tile_map, reward_dict, texture_map, transition_dict={}, time_penalty=-0.001, seed=None):
         """
 
         """
 
         self.tile_map = desc = np.asarray(tile_map, dtype='c')
-        self.rewards = np.asarray(reward_map).flatten()
+        self.texture_map = texture_map.flatten()
+        # self.rewards = np.asarray(reward_map).flatten()
+        self.rewards = reward_dict
         self.nrow, self.ncol = nrow, ncol = desc.shape
         self.penalty = time_penalty
         self.potential_goal_states = []
         self.step_num = 0
-        self.t_mat = None
+        self.t_mat, self.theta_mat = None, None
+        self.tile_types = 2 # Hard coded but shouldn't necessarily be. Should include a "Tile map"
 
 
         # Rotational dir_dict
@@ -119,27 +131,34 @@ class MarsExplorerEnv(DiscreteEnv):
            (0,0):4}
 
 
-        nA = 5
+        nA = 6
         self.nmA = nmA = 4
-        nS = nrow * ncol
+        self.end_state = nrow * ncol
+        nS = self.end_state + 1
+        self.nD = 6
 
-        flat_desc = desc.flatten()
-        nonGoalChars = b'BFUS'
-        goalChars = [key for key in transition_dict.keys() if key not in nonGoalChars]
-        goalIndexes = []
-        for i, char in enumerate(flat_desc):
-            if char not in nonGoalChars:
-                goalIndexes += [i]
-        nGoalTypes = len(goalChars)
+        # flat_desc = desc.flatten()
+        # nonGoalChars = b'BFUS'
+        # # goalChars = [key for key in transition_dict.keys() if key not in nonGoalChars]
+        # goalIndexes = []
+        # for i, char in enumerate(flat_desc):
+        #     if char not in nonGoalChars:
+        #         goalIndexes += [i]
 
-        self.feature_map = np.zeros((nS, nGoalTypes + 1))
-        self.feature_map[:,0] = texture_map.flatten()
-        self.feature_map[goalIndexes, 0] = 0.0
+        # nGoalTypes = len(goalChars)
+        # self.feature_map = np.zeros((nS, nGoalTypes + 1))
+        # self.feature_map[:,0] = texture_map.flatten()
+        # self.feature_map[goalIndexes, 0] = 0.0
 
-        for s in goalIndexes:
-            char = flat_desc[s]
-            feat_idx = int(char)
-            self.feature_map[s, feat_idx] = 1
+        # TODO include tile map such that this is a feasible thing to construct
+        # self.thetas = np.zeros((nA, nA, self.tile_types))
+        # for t in range(self.tile_types):
+        #     self.thetas[0,:,t] =
+
+        # for s in goalIndexes:
+        #     char = flat_desc[s]
+        #     feat_idx = int(char)
+        #     self.feature_map[s, feat_idx] = 1
 
 
 
@@ -162,9 +181,11 @@ class MarsExplorerEnv(DiscreteEnv):
                 for a in range(nA):
                     li = P[s][a]
                     letter = desc[row, col]
-                    rew = self.penalty
-                    if a == NOOP:
-                        li.append((1.0, s, rew + self.rewards[s], False))
+                    rew = self.penalty + self.texture_map[s]
+                    if a == EXIT:
+                        li.append((1.0, self.end_state, rew + reward_dict[letter], True))
+                    elif a == NOOP:
+                        li.append((1.0, s, rew, False))
                     else:
                         transitions = transition_dict[letter]
                         probs = [(transitions[0], a),
@@ -181,7 +202,12 @@ class MarsExplorerEnv(DiscreteEnv):
                                 li_dict[newstate] += p
                             else:
                                 li_dict[newstate] = p
-                        li += [(li_dict[newstate], newstate, rew+self.rewards[s], False) for newstate in li_dict.keys()]
+                        li += [(li_dict[newstate], newstate, rew, False) for newstate in li_dict.keys()]
+
+        s = self.end_state
+        for a in range(nA):
+            li = P[s][a]
+            li.append((1.0, s, 0, True))
 
         self.adt_map = np.array(np.empty((nS,nA,nS)), dtype='object')
         for i in range(nS):
@@ -207,14 +233,39 @@ class MarsExplorerEnv(DiscreteEnv):
         return (s, r, d, {"prob": p, "adt":adt, "trans":transitions})
 
     def s_to_grid(self, s):
+        if s == self.end_state:
+            return self.ncol * 100, self.ncol * 100
         return s%self.ncol, s//self.ncol
 
     def get_direction_moved(self, s, sprime):
+        if sprime == self.end_state:
+            return self.nD - 1
         c1,r1 = self.s_to_grid(s)
         c2,r2 = self.s_to_grid(sprime)
         # ROTATIONAL
         dx,dy = (c2 - c1) % self.ncol, (r2 - r1) % self.nrow
         return self.dir_dict[(dx,dy)] if (dx,dy) in self.dir_dict else None
+
+    def get_possible_sprimes(self, s):
+        s = np.array(s)
+        if s.shape[1] == 1:
+            s = np.vectorize(self.s_to_grid)(s)
+        sprime = np.moveaxis(np.tile(s, (self.nD,1,1)), 0, 2)
+
+        for i in range(DIRARRAY.shape[0]):
+            sprime[:,:,i] += DIRARRAY[i]
+        sprime[:,0,:] %= self.ncol
+        sprime[:,1,:] %= self.nrow
+
+        end_s = self.s_to_grid(self.end_state)
+        end_s_indexes = np.where((s == np.array(end_s)).all(axis=1))
+        if len(end_s_indexes) > 0:
+            sprime[end_s_indexes, 0, :] = end_s[0]
+            sprime[end_s_indexes, 1, :] = end_s[1]
+        sprime[:,0,self.nD-1] = end_s[0]
+        sprime[:,1,self.nD-1] = end_s[1]
+        return sprime.transpose((0,2,1))
+
 
 
     def get_reward(self, s, a, sprime=None):
@@ -227,7 +278,20 @@ class MarsExplorerEnv(DiscreteEnv):
                 r = t[2] if t[1] == sprime else r
         return r
 
+    def get_reward_matrix(self):
+        R = np.zeros((self.nS, self.nA))
+        for s in range(self.nS):
+            for a in range(self.nA):
+                r = 0
+                for t in self.P[s][a]:
+                    r += t[0] * t[2]
+                R[s,a] = r
+        return R
+
+
     def get_tile_type(self, s):
+        if s == self.end_state:
+            return 2
         l = self.tile_map.flatten()[s]
         return 0 if l in b'SF123' else 1
 
@@ -283,6 +347,7 @@ class MarsExplorerEnv(DiscreteEnv):
                             T[s, a, s_prime] = s_a_s[s_prime]
             self.t_mat = T
         return self.t_mat
+
 
     
 
