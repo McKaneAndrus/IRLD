@@ -234,17 +234,26 @@ class MarsExplorerEnv(DiscreteEnv):
         dx,dy = (c2 - c1) % self.ncol, (r2 - r1) % self.nrow
         return self.dir_dict[(dx,dy)] if (dx,dy) in self.dir_dict else None
 
-    def get_possible_sprimes(self, s):
+
+    # Pretty hacky way of just getting all possible next primes, designed specifically for [Batch] or [Batch, 2]
+    def get_possible_sprimes(self, s, grid=False):
+
+        def to_s(grid_points):
+            grid_points[:,:,0] *= self.ncol
+            return np.sum(grid_points, axis=2)
+
         s = np.array(s)
-        if s.shape[1] == 1:
-            s = np.vectorize(self.s_to_grid)(s)
+        if len(s.shape) == 1:
+            s = np.transpose(np.vectorize(self.s_to_grid)(s))
         sprime = np.moveaxis(np.tile(s, (self.nD,1,1)), 0, 2)
         for i in range(DIRARRAY.shape[0]):
             sprime[:,:,i] += DIRARRAY[i]
         sprime[:,0,:] %= self.ncol
         sprime[:,1,:] %= self.nrow
+        sprime = sprime.transpose((0,2,1))
+        ret = to_s(sprime) if not grid else sprime
 
-        return sprime.transpose((0,2,1))
+        return ret
 
 
 
