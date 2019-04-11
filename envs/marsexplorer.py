@@ -239,7 +239,7 @@ class MarsExplorerEnv(DiscreteEnv):
     def get_possible_sprimes(self, s, grid=False):
 
         def to_s(grid_points):
-            grid_points[:,:,0] *= self.ncol
+            grid_points[:,:,1] *= self.ncol
             return np.sum(grid_points, axis=2)
 
         s = np.array(s)
