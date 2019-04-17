@@ -9,7 +9,7 @@ from envs.environment_setup_utils import get_mdp
 from utils.demos_utils import get_demos
 
 ex = Experiment()
-ex.observers.append(FileStorageObserver.create('my_runs'))
+ex.observers.append(FileStorageObserver.create('logs'))
 
 
 @ex.config
