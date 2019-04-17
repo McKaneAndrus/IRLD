@@ -7,9 +7,10 @@ import tensorflow as tf
 from utils.model_setup import create_tf_model
 from envs.environment_setup_utils import get_mdp
 from utils.demos_utils import get_demos
+from utils.experiment_utils import current_milli_time
 
 ex = Experiment()
-ex.observers.append(FileStorageObserver.create('logs'))
+ex.observers.append(FileStorageObserver.create('logs/sacred'))
 
 
 @ex.config
@@ -64,7 +65,7 @@ def idl_train(mdp_num, gamma, alpha, beta1, beta2, sq_td_err_penalty,
              trans_penalty, t_err_penalty, q_err_penalty, constraint_batch_size, q_n_layers, q_activation,
             q_output_activation, invdyn_n_layers, invdyn_layer_size, invdyn_output_activation, n_act_dim,
             featurize_acts, n_dirs, boltz_beta, gamma_demo, temp_boltz_beta, n_demos, demo_time_steps,
-            n_training_iters, batch_size):
+            n_training_iters, batch_size, _run):
 
     os_setup()
     data_dir = os.path.join('data', '1.1')
@@ -89,6 +90,11 @@ def idl_train(mdp_num, gamma, alpha, beta1, beta2, sq_td_err_penalty,
                                                                                                     n_demos,
                                                                                                     demo_time_steps)
 
-    idl_train(n_training_iters, nn_rollouts, train_idxes, constraints, true_qs, val_demo_batch,
-              states, adt_samples, batch_size)
+    out_dir = os.path.join("logs", "models", str(current_milli_time()))
+    return idl_train(n_training_iters, nn_rollouts, train_idxes, constraints, true_qs, val_demo_batch,
+              states, adt_samples, batch_size, out_dir, _run)
+
+
+
+
 

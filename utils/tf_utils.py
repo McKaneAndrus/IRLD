@@ -3,6 +3,8 @@ import os
 
 def save_tf_vars(sess, scope, path):
     saver = tf.train.Saver([v for v in tf.global_variables() if v.name.startswith(scope + '/')])
+    if not os.path.exists(path):
+        os.makedirs(path)
     saver.save(sess, save_path=path)
 
 

@@ -1,6 +1,7 @@
 import numpy as np
 import time
 
+current_milli_time = lambda: int(round(time.time() * 1000))
 
 def run_simulation(algorithm, vis_history=True, verbose=True, sep_rewards=False, steps=float('inf'),
                    on_belief_update=False, history=None, cancel_updates=False, use_counts=False):

@@ -6,7 +6,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from utils.frank_wolfe_utils import find_min_norm_element
 from copy import deepcopy as copy
-
+from utils.tf_utils import save_tf_vars
+import os
 
 def create_tf_model(sess, mdp, q_scope, invsas_scope, invadt_scope,
                     gamma, alpha, beta1, beta2, sq_td_err_penalty, trans_penalty,
@@ -375,7 +376,7 @@ def create_tf_model(sess, mdp, q_scope, invsas_scope, invadt_scope,
         return d
 
     def idl_train(n_training_iters, nn_rollouts, train_idxes, constraints, true_qs, val_demo_batch,
-                 states, adt_samples, batch_size):
+                 states, adt_samples, batch_size, out_dir, _run=None):
 
         tf.global_variables_initializer().run(session=sess)
 
@@ -430,12 +431,20 @@ def create_tf_model(sess, mdp, q_scope, invsas_scope, invadt_scope,
         while total_train_time < n_training_iters:
             demo_batch = sample_batch(nn_rollouts, train_idxes, batch_size)
             train_log = compute_batch_loss(demo_batch, constraints, step=True, update=update, true_qs=true_qs)
+
+
+
+
             if i % 20 == 0:
                 val_log = compute_batch_loss(val_demo_batch, constraints, step=False, update=update, true_qs=true_qs)
                 for k, v in train_log.items():
+
+                    _run.log_scalar(k, v, total_train_time)
                     full_train_logs['%s_evals' % k].append(v)
                 for k, v in val_log.items():
                     if 'val_%s_evals' % k in full_train_logs:
+
+                        _run.log_scalar(k, v, total_train_time)
                         full_train_logs['val_%s_evals' % k].append(v)
 
             if i % 1000 == 0:
@@ -454,24 +463,28 @@ def create_tf_model(sess, mdp, q_scope, invsas_scope, invadt_scope,
 
             if i % 5000 == 0:
                 q_vals = sess.run([constraint_q_ts], feed_dict={constraint_obs_t_feats_ph: states})[0]
-                plot_values(mdp, q_vals)
-                plt.show()
-                adt_probs = sess.run([adt_pred_dir], feed_dict={demo_tile_t_ph: adt_samples[:, 0][np.newaxis].T,
-                                                                demo_act_t_ph: adt_samples[:, 1][np.newaxis].T})[0]
-                print(softmax(adt_probs))
+                adt_probs = softmax(sess.run([adt_pred_dir], feed_dict={demo_tile_t_ph: adt_samples[:, 0][np.newaxis].T,
+                                                                demo_act_t_ph: adt_samples[:, 1][np.newaxis].T})[0])
 
-                for k in ['val_loss_evals', 'val_ntll_evals', 'val_nall_evals', 'val_tde_evals']:
-                    if len(full_train_logs[k]) > 0:
-                        plt.xlabel('Iterations')
-                        plt.ylabel(k.split('_')[1])
-                        plt.plot(full_train_logs[k][10:])
-                        plt.show()
+                print("q_vals = {}".format(q_vals))
+                print("adt_probs = {}".format(adt_probs))
+                _run.result = q_vals, adt_probs
+
             i += 1
             total_train_time += 1
 
+            #Save as file
+            q_f = os.path.join(out_dir, "q_fn.tf")
+            invadt_f = os.path.join(out_dir, "invadt_fn.tf")
+            save_tf_vars(sess, q_scope, q_f)
+            save_tf_vars(sess, invadt_scope, invadt_f)
+            return q_f, invadt_f
+
+
     def frank_wofe_train(sess, n_training_iters, nn_rollouts, train_idxes, batch_size, constraints, num_tasks,
                          val_demo_batch,
-                         states, adt_samples, MAX_ITER, STOP_CRIT):
+                         states, adt_samples, MAX_ITER, STOP_CRIT, out_dir, _run=None):
+
         # scales = tf.placeholder(tf.float32, [num_tasks], name="scale")
         scales = [tf.placeholder(tf.float32, [1], name="scale{}".format(i)) for i in range(num_tasks)]
         clip_norms = [tf.placeholder(tf.float32, [1], name="clipnorm{}".format(i)) for i in range(num_tasks)]
@@ -510,8 +523,6 @@ def create_tf_model(sess, mdp, q_scope, invsas_scope, invadt_scope,
         updates = [opts[i].apply_gradients(zip(scaled_grads[i], gvars[i])) for i in range(num_tasks)]
 
         gn = "l+"
-
-
 
         tf.global_variables_initializer().run(session=sess)
 
@@ -593,28 +604,31 @@ def create_tf_model(sess, mdp, q_scope, invsas_scope, invadt_scope,
                 for k, v in val_log.items():
                     if 'val_%s_evals' % k in full_train_logs:
                         full_train_logs['val_%s_evals' % k].append(v)
+                        _run.log_scalar(k, v, total_train_time)
             #         print([(key,val_log[key]) for key in val_log.keys()])
 
             if total_train_time % 100 == 0:
                 print(sol)
-                print([(key, val_log[key]) for key in val_log.keys()])
+                #print([(key, val_log[key]) for key in val_log.keys()])
 
             if train_iter % 1000 == 0:
                 q_vals = sess.run([constraint_q_ts], feed_dict={constraint_obs_t_feats_ph: states})[0]
-                plot_values(mdp, q_vals)
-                plt.show()
-                adt_probs = sess.run([adt_pred_dir], feed_dict={demo_tile_t_ph: adt_samples[:, 0][np.newaxis].T,
-                                                                demo_act_t_ph: adt_samples[:, 1][np.newaxis].T})[0]
-                print(softmax(adt_probs))
+                adt_probs = softmax(sess.run([adt_pred_dir], feed_dict={demo_tile_t_ph: adt_samples[:, 0][np.newaxis].T,
+                                                                demo_act_t_ph: adt_samples[:, 1][np.newaxis].T})[0])
 
-                for k in ['val_loss_evals', 'val_ntll_evals', 'val_nall_evals', 'val_tde_evals']:
-                    if len(full_train_logs[k]) > 0:
-                        plt.xlabel('Iterations')
-                        plt.ylabel(k.split('_')[1])
-                        plt.plot(full_train_logs[k][10:])
-                        plt.show()
+                print("q_vals = {}".format(q_vals))
+                print("adt_probs = {}".format(adt_probs))
+                _run.result = q_vals, adt_probs
+
             train_iter += 1
             total_train_time += 1
+
+            # Save as file
+            q_f = os.path.join(out_dir, "q_fn.tf")
+            invadt_f = os.path.join(out_dir, "invadt_fn.tf")
+            save_tf_vars(sess, q_scope, q_f)
+            save_tf_vars(sess, invadt_scope, invadt_f)
+            return q_f, invadt_f
 
 
     return compute_batch_loss, idl_train, frank_wofe_train
