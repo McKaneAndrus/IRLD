@@ -105,6 +105,8 @@ class MarsExplorerEnv(DiscreteEnv):
 
     def __init__(self, tile_map, reward_map, texture_map, transition_dict={}, time_penalty=-0.001, seed=None):
         self.tile_map = desc = np.asarray(tile_map, dtype='c')
+        self.reward_map = reward_map
+        self.pure_texture_map = texture_map
         self.texture_map = texture_map.flatten()
         # self.rewards = np.asarray(reward_map).flatten()
         self.rewards = reward_map.flatten()
@@ -301,23 +303,26 @@ class MarsExplorerEnv(DiscreteEnv):
 
     def get_transition_matrix(self):
         """Return a matrix with index S,A,S' -> P(S'|S,A)"""
-        if self.t_mat is None:
-            transition_matrix = np.zeros([self.num_states, self.num_actions, self.num_states])
+        if self.t_mat is not None:
+            return self.t_mat
 
-            for state in range(self.num_states):
-                for action in range(self.num_actions):
-                    transition_distribution = self.transitions[state][action]
+        transition_matrix = np.zeros([self.num_states, self.num_actions, self.num_states])
 
-                    probability_next_state_fixed_action_current_state = {transition[1]: transition[0]
-                                                                         for transition in transition_distribution}
+        for state in range(self.num_states):
+            for action in range(self.num_actions):
+                transition_distribution = self.transitions[state][action]
 
-                    for next_state in range(self.num_states):
-                        if next_state in probability_next_state_fixed_action_current_state:
-                            transition_matrix[state, action, next_state] = \
-                                probability_next_state_fixed_action_current_state[next_state]
+                probability_next_state_fixed_action_current_state = {transition[1]: transition[0]
+                                                                     for transition in transition_distribution}
 
-            self.t_mat = transition_matrix
+                for next_state in range(self.num_states):
+                    if next_state in probability_next_state_fixed_action_current_state:
+                        transition_matrix[state, action, next_state] = \
+                            probability_next_state_fixed_action_current_state[next_state]
+
+        self.t_mat = transition_matrix
         return self.t_mat
+
 
 
     
