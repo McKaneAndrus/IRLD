@@ -6,6 +6,7 @@ stats/
 results/
 
 # Byte-compiled / optimized / DLL files
+*.idea/
 __pycache__/
 **/*.pyc
 *.py[cod]
