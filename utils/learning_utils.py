@@ -1,6 +1,6 @@
 import numpy as np
 import random
-from envs.environment_utils import featurize_states, gridify_states
+from envs.environment_utils import featurize_states
 
 
 def softmax(x, axis=1):
@@ -45,7 +45,6 @@ def generate_constraints(mdp):
     sa = np.transpose([np.tile(s, len(a)), np.repeat(a, len(s))])
     states, acts = sa[:,0], sa[:,1]
     feat_states = featurize_states(mdp, states)
-    grid_states = gridify_states(mdp, states)
     tiles = np.expand_dims(np.array([mdp.get_tile_type(s) for s in states]), axis=1)
     acts_array = np.expand_dims(acts, axis=1)
     rewards = np.array([mdp.get_reward(states[i], acts[i]) for i in range(len(states))])
@@ -56,22 +55,3 @@ def generate_constraints(mdp):
 
     return feat_states, acts_array, rewards, feat_next_states, tiles
 
-
-def update_switcher(update, update_progression, losses, slope_threshold=1e-4, horizon=100):
-    if len(losses) <= 3:
-        switch = False
-    else:
-        if len(losses) < horizon:
-            horizon = len(losses)
-        slope = np.polyfit(np.arange(horizon), losses[-horizon:], 1)[0]
-        switch = -slope < slope_threshold
-
-        print(-slope, switch)
-
-    if switch:
-        if update not in update_progression:
-            update = update_progression[0]
-        else:
-            update = update_progression[(update_progression.index(update) + 1) % len(update_progression)]
-
-    return update

@@ -6,4 +6,4 @@ def gridify_states(mdp, states):
 def featurize_states(mdp, states):
     grid_points = gridify_states(mdp, states)
     row_one_hots, col_one_hots = np.eye(mdp.nrow), np.eye(mdp.ncol)
-    return np.array([np.concatenate((row_one_hots[gp[0]], col_one_hots[gp[1]])) for gp in grid_points])
+    return np.array([np.concatenate((row_one_hots[gp[1]], col_one_hots[gp[0]])) for gp in grid_points])

@@ -1,6 +1,8 @@
 import numpy as np
 from .discrete_env import categorical_sample, DiscreteEnv
 
+import gym
+
 LEFT = 0
 DOWN = 1
 RIGHT = 2
@@ -103,7 +105,7 @@ class MarsExplorerEnv(DiscreteEnv):
 
     metadata = {'render.modes': ['human', 'ansi']}
 
-    def __init__(self, tile_map, reward_map, texture_map, transition_dict={}, time_penalty=-0.001, seed=None):
+    def __init__(self, tile_map, reward_map, texture_map, transition_dict, time_penalty=-0.001, seed=None):
         self.tile_map = desc = np.asarray(tile_map, dtype='c')
         self.reward_map = reward_map
         self.pure_texture_map = texture_map
@@ -116,6 +118,7 @@ class MarsExplorerEnv(DiscreteEnv):
         self.t_mat, self.theta_mat = None, None
         self.tile_types = 2  # Hard coded but shouldn't necessarily be. Should include a "Tile map"
 
+
         # Rotational dir_dict
         self.dir_dict = {(self.ncol - 1, 0): 0,
            (0, 1): 1,
@@ -123,7 +126,7 @@ class MarsExplorerEnv(DiscreteEnv):
            (0, self.nrow-1): 3,
            (0, 0): 4}
 
-        num_actions = 5
+        self.nA = num_actions = 5
         self.nmA = nmA = 4
         num_states = nrow * ncol
         self.nD = 5
@@ -199,6 +202,8 @@ class MarsExplorerEnv(DiscreteEnv):
         self.adt_map[self.adt_mask] = [(0, 0, 0) for _ in range(len(self.adt_mask[0]))]
 
         super(MarsExplorerEnv, self).__init__(num_states, num_actions, P, isd)
+
+
 
     def _step(self, a):
         transitions = self.transitions[self.state][a]
@@ -323,9 +328,52 @@ class MarsExplorerEnv(DiscreteEnv):
         self.t_mat = transition_matrix
         return self.t_mat
 
+class GridTwoHotEncoding(gym.Space):
+    """
+    {0,...,1,...,0,...,1,...,0}
+
+    Example usage:
+    self.observation_space = GridTwoHotEncoding(width=4, height=4)
+    """
+
+    def __init__(self, width=None, height=None):
+        assert isinstance(width, int) and width > 0
+        assert isinstance(height, int) and height > 0
+        self.width = width
+        self.height = height
+        gym.Space.__init__(self, (), np.int64)
+
+    def sample(self):
+        one_hot_vector = np.zeros(self.width + self.height)
+        one_hot_vector[np.random.randint(self.width)] = 1
+        one_hot_vector[np.random.randint(self.height)+self.width] = 1
+        return one_hot_vector
+
+    def contains(self, x):
+        if isinstance(x, (list, tuple, np.ndarray)):
+            number_of_zeros = list(x).contains(0)
+            number_of_ones = list(x).contains(1)
+            return (number_of_zeros == (self.size - 2)) and (number_of_ones == 2)
+        else:
+            return False
+
+    def __repr__(self):
+        return "GridTwoHotEncoding(%d, %d)" % self.width, self.height
+
+    def __eq__(self, other):
+        return self.width == other.width and self.height == other.height
 
 
-    
 
-
-
+# class TwoHotMarsExplorerEnv(MarsExplorerEnv):
+#     """
+#     Todo
+#     """
+#
+#     metadata = {'render.modes': ['human', 'ansi']}
+#
+#     def __init__(self, tile_map, reward_map, texture_map, transition_dict={}, time_penalty=-0.001, seed=None):
+#
+#         super(TwoHotMarsExplorerEnv, self).__init__(tile_map, reward_map, texture_map, transition_dict, time_penalty, seed)
+#
+#         self.observation_space = GridTwoHotEncoding(self.n)

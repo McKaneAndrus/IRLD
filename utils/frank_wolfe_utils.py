@@ -1,5 +1,8 @@
 import numpy as np
 
+MAX_ITER = 250
+STOP_CRIT = 1e-6
+
 def _min_norm_element_from2(v1v1, v1v2, v2v2):
     """
     Analytical solution for min_{c} |cx_1 + (1-c)x_2|_2^2
