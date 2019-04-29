@@ -22,9 +22,6 @@ def tabsoftq_iter(R, T, num_states, num_actions, maxiter=10000, verbose=False, Q
             diffs.append(diff)
             meanVs.append(np.mean(V))
         if diff < ftol:
-            print(Q)
-            print(gamma * np.sum(T * V_broad, axis=2))
-            print(V)
             break
         prevQ = copy(Q)
     if verbose:

@@ -1,10 +1,11 @@
 import tensorflow as tf
 from utils.tf_utils import build_mlp
-from utils.learning_utils import sample_batch
+from utils.learning_utils import sample_batch, softmax
 import numpy as np
 from utils.frank_wolfe_utils import find_min_norm_element
 from utils.tf_utils import save_tf_vars, load_tf_vars
 import os
+import pickle as pkl
 
 
 class InverseDynamicsLearner():
@@ -68,20 +69,20 @@ class InverseDynamicsLearner():
         # Learning an "adt" transition model should be much easier
 
         if adt:
-            pred_obs = build_mlp(
+            self.pred_obs = build_mlp(
                 tf.concat((self.demo_act_t_ph, self.demo_tile_t_ph), axis=1),
                 n_dirs, dyn_scope,
                 n_layers=dyn_n_layers, size=dyn_layer_size,
                 activation=dyn_layer_activation, output_activation=dyn_output_activation)
         else:
-            pred_obs = build_mlp(
+            self.pred_obs = build_mlp(
                 tf.concat((self.demo_obs_t_feats_ph, self.demo_act_t_ph), axis=1),
                 n_dirs, dyn_scope,
                 n_layers=dyn_n_layers, size=dyn_layer_size,
                 activation=dyn_layer_activation, output_activation=dyn_output_activation)
 
 
-        trans_log_likelihoods = tf.gather_nd(pred_obs, dir_indexes) - tf.reduce_logsumexp(pred_obs, axis=1)
+        trans_log_likelihoods = tf.gather_nd(self.pred_obs, dir_indexes) - tf.reduce_logsumexp(self.pred_obs, axis=1)
 
         self.neg_avg_trans_log_likelihood = -tf.reduce_mean(trans_log_likelihoods)
 
@@ -89,13 +90,13 @@ class InverseDynamicsLearner():
 
         ca_indexes = tf.concat([tf.expand_dims(tf.range(self.constraint_batch_size_ph), 1), self.constraint_act_t_ph], axis=1)
 
-        constraint_q_ts = build_mlp(self.constraint_obs_t_feats_ph,
+        self.constraint_q_ts = build_mlp(self.constraint_obs_t_feats_ph,
                                     n_act_dim, q_scope,
                                     n_layers=q_n_layers, size=q_layer_size,
                                     activation=q_layer_activation, output_activation=q_output_activation,
                                     reuse=True)
 
-        constraint_q_t = tf.gather_nd(constraint_q_ts, ca_indexes)
+        constraint_q_t = tf.gather_nd(self.constraint_q_ts, ca_indexes)
 
         # Predicted constraint next state given inv dyns
         if adt:
@@ -166,7 +167,13 @@ class InverseDynamicsLearner():
         self.validation_freq = validation_freq
 
         if regime == "weighted":
-            pass
+            losses = regime_params['losses']
+            loss_weights = regime_params['loss_weights']
+            assert len(losses) == len(loss_weights)
+            self.weighted_loss = [losses[i] * loss_weights[i] for i in range(len(losses))]
+            self.log_losses = np.concatenate([self.log_losses, [self.weighted_loss]])
+            self.log_loss_titles = np.concatenate([self.log_loss_titles, ["weighted_loss"]])
+            self.update = tf.train.AdamOptimizer().minimize(self.weighted_loss)
 
         if regime == "coordinate":
             # Coordinate descent training regime
@@ -209,11 +216,14 @@ class InverseDynamicsLearner():
 
 
     def train(self, n_training_iters, rollouts, train_idxes, batch_size, constraints, val_demo_batch, out_dir,
-              _run=None, verbose=True, q_source_path=None, dyn_source_path=None):
+              q_states, adt_samples, tab_save_freq = 1000, _run=None, verbose=True, q_source_path=None, dyn_source_path=None):
 
         assert(self.regime is not None)
 
         tf.global_variables_initializer().run(session=self.sess)
+
+        tab_model_out_dir = os.path.join(out_dir, "tab")
+        os.makedirs(tab_model_out_dir)
 
         # Load pretrained models with same scope
         if q_source_path is not None:
@@ -237,61 +247,86 @@ class InverseDynamicsLearner():
 
         val_feed = self._get_feed_dict(val_demo_batch, constraints)
 
-        while train_time < n_training_iters:
+        try:
 
-            demo_batch = sample_batch(rollouts, train_idxes, batch_size)
-            feed_dict = self._get_feed_dict(demo_batch, constraints)
+            while train_time < n_training_iters:
 
-            if self.regime == "coordinate":
-                loss_data = self.sess.run(list(self.log_losses) + [self.curr_update], feed_dict=feed_dict)[:-1]
-                total_loss.append(sum(loss_data))
+                demo_batch = sample_batch(rollouts, train_idxes, batch_size)
+                feed_dict = self._get_feed_dict(demo_batch, constraints)
 
-            if self.regime == "MGDA":
+                if self.regime == "weighted":
+                    loss_data = self.sess.run(list(self.log_losses) + [self.update], feed_dict=feed_dict)[:-1]
 
-                loss_and_gvs = self.sess.run(list(self.log_losses) + [self.all_gvs], feed_dict=feed_dict)
-                loss_data, gvs = loss_and_gvs[:-1], loss_and_gvs[-1]
+                if self.regime == "coordinate":
+                    loss_data = self.sess.run(list(self.log_losses) + [self.curr_update], feed_dict=feed_dict)[:-1]
+                    total_loss.append(sum(loss_data))
 
-                grad_arrays = {}
-                for t in range(self.num_tasks):
-                    # Compute gradients of each loss function wrt parameters
-                    grad_arrays[t] = np.concatenate([gvs[t][i][0].flatten() for i in range(len(gvs))])
+                if self.regime == "MGDA":
+                    loss_and_gvs = self.sess.run(list(self.log_losses) + [self.all_gvs], feed_dict=feed_dict)
+                    loss_data, gvs = loss_and_gvs[:-1], loss_and_gvs[-1]
 
-                # Frank-Wolfe iteration to compute scales.
-                sol, min_norm = find_min_norm_element(grad_arrays)
-                full_train_logs["frank_wolfe"] += [sol]
+                    grad_arrays = {}
+                    for t in range(self.num_tasks):
+                        # Compute gradients of each loss function wrt parameters
+                        grad_arrays[t] = np.concatenate([gvs[t][i][0].flatten() for i in range(len(gvs))])
 
-                # Scaled back-propagation
-                for i, s in enumerate(self.scales):
-                    feed_dict[s] = [sol[i]]
+                    # Frank-Wolfe iteration to compute scales.
+                    sol, min_norm = find_min_norm_element(grad_arrays)
+                    full_train_logs["frank_wolfe"] += [sol]
 
-                # Inefficient, takes gradients twice when we could just feed the gradients back in
-                self.sess.run(self.updates, feed_dict=feed_dict)
+                    # Scaled back-propagation
+                    for i, s in enumerate(self.scales):
+                        feed_dict[s] = [sol[i]]
 
-
-            for i, loss in enumerate(loss_data):
-                full_train_logs[self.log_loss_titles[i]] += [loss]
-
-            if train_time % self.validation_freq == 0:
-                val_loss_data = self.sess.run(list(self.log_losses), feed_dict=val_feed)
-                for i, loss in enumerate(val_loss_data):
-                    full_train_logs["val_" + self.log_loss_titles[i]] += [loss]
-
-            if train_time % 100 == 0 and verbose:
-                print([(k, full_train_logs["val_" + k][-1]) for k in self.log_loss_titles])
-
-            # Check for update_switching
-            if self.regime == "coordinate" and train_time % self.switch_frequency and self._update_switcher(total_loss):
-                total_loss = []
+                    # Inefficient, takes gradients twice when we could just feed the gradients back in
+                    self.sess.run(self.updates, feed_dict=feed_dict)
 
 
-            train_time += 1
+                for i, loss in enumerate(loss_data):
+                    full_train_logs[self.log_loss_titles[i]] += [loss]
+
+                if train_time % self.validation_freq == 0:
+                    val_loss_data = self.sess.run(list(self.log_losses), feed_dict=val_feed)
+                    for i, loss in enumerate(val_loss_data):
+                        metric_name = "val_" + self.log_loss_titles[i]
+                        full_train_logs[metric_name] += [loss]
+                        if _run is not None:
+                            _run.log_scalar(metric_name, loss, train_time)
+
+                if train_time % 100 == 0 and verbose:
+                    print([(k, full_train_logs["val_" + k][-1]) for k in self.log_loss_titles])
+
+
+
+                if train_time % tab_save_freq == 0 and train_time != 0:
+                    q_vals = self.sess.run([self.constraint_q_ts], feed_dict={self.constraint_obs_t_feats_ph: q_states})[0]
+                    adt_probs = self.sess.run([self.pred_obs], feed_dict={self.demo_tile_t_ph: adt_samples[:, 0][np.newaxis].T,
+                                                                    self.demo_act_t_ph: adt_samples[:, 1][np.newaxis].T})[0]
+                    # print(q_vals)
+                    # print(softmax(adt_probs))
+                    pkl.dump(q_vals, open(os.path.join(tab_model_out_dir, 'q_vals_{}.pkl'.format(train_time)), 'wb'))
+                    pkl.dump(softmax(adt_probs), open(os.path.join(tab_model_out_dir, 'adt_probs_{}.pkl'.format(train_time)), 'wb'))
+
+
+
+                # Check for update_switching
+                if self.regime == "coordinate" and train_time % self.switch_frequency and self._update_switcher(total_loss):
+                    total_loss = []
+
+
+
+                train_time += 1
+
+        except KeyboardInterrupt:
+            print("Experiment Interrupted at timestep {}".format(train_time))
+            pass
 
         # Save as file
-        q_f = os.path.join(out_dir, "q_fn.tf")
-        dyn_f = os.path.join(out_dir, "dyn_fn.tf")
+        q_f = os.path.join(out_dir, "q_fn")
+        dyn_f = os.path.join(out_dir, "dyn_fn")
         save_tf_vars(self.sess, self.q_scope, q_f)
         save_tf_vars(self.sess, self.dyn_scope, dyn_f)
-        return q_f, dyn_f
+        return q_f, dyn_f if _run is None else q_f, dyn_f, full_train_logs
 
 
     def _update_switcher(self, losses):

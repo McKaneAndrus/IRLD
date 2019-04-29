@@ -57,10 +57,12 @@ def default_config():
 
     loss_configurations = [[0,3],[1,4]]
 
+    tab_save_freq = 50
+
 @ex.automain
 def mgda_train(_run, mdp_num, gamma, alpha, beta1, beta2, constraint_batch_size, q_n_layers, q_layer_size, q_activation,
             q_output_activation, dyn_n_layers, dyn_layer_size, dyn_activation, dyn_output_activation, boltz_beta,
-            gamma_demo, temp_boltz_beta, n_demos, demo_time_steps, n_training_iters, batch_size, loss_configurations):
+            gamma_demo, temp_boltz_beta, n_demos, demo_time_steps, n_training_iters, batch_size, loss_configurations, tab_save_freq):
 
     os_setup()
     data_dir = os.path.join('data', '1.1')
@@ -90,6 +92,6 @@ def mgda_train(_run, mdp_num, gamma, alpha, beta1, beta2, constraint_batch_size,
 
     out_dir = os.path.join("logs", "models", str(current_milli_time()))
 
-    return model.train(n_training_iters, rollouts, train_idxes, batch_size, constraints, val_demo_batch, out_dir)
+    return model.train(n_training_iters, rollouts, train_idxes, batch_size, constraints, val_demo_batch, out_dir, states, adt_samples, tab_save_freq)
 
 
