@@ -15,10 +15,12 @@ class InverseDynamicsLearner():
 
         mlp_params = {} if mlp_params is None else mlp_params
 
+        self.mdp = mdp
+
         # TODO Make this retrievable by env observation space
         n_obs_feats = mdp.nrow + mdp.ncol
-        n_act_dim = mdp.nA
-        n_dirs = mdp.nD
+        n_act_dim = mdp.num_actions
+        n_dirs = mdp.num_directions
 
         self.dyn_scope = dyn_scope
         self.q_scope = q_scope
@@ -46,6 +48,9 @@ class InverseDynamicsLearner():
         self.constraint_rew_t_ph = tf.placeholder(tf.float32, [None], name="crt")
         self.constraint_next_obs_t_feats_ph = tf.placeholder(tf.int32, [None, n_dirs, n_obs_feats], name="cnotf")
         self.constraint_batch_size_ph = tf.placeholder(tf.int32, name="cbs")
+
+        # True Qs are only used for testing architectures and learning capabilities
+        self.true_qs_ph = tf.placeholder(tf.float32, [None, n_act_dim], name="tqs")
 
         demo_q_t = build_mlp(self.demo_obs_t_feats_ph,
                              n_act_dim, q_scope,
@@ -90,13 +95,13 @@ class InverseDynamicsLearner():
 
         ca_indexes = tf.concat([tf.expand_dims(tf.range(self.constraint_batch_size_ph), 1), self.constraint_act_t_ph], axis=1)
 
-        self.constraint_q_ts = build_mlp(self.constraint_obs_t_feats_ph,
+        self.constraint_qs_t = build_mlp(self.constraint_obs_t_feats_ph,
                                     n_act_dim, q_scope,
                                     n_layers=q_n_layers, size=q_layer_size,
                                     activation=q_layer_activation, output_activation=q_output_activation,
                                     reuse=True)
 
-        constraint_q_t = tf.gather_nd(self.constraint_q_ts, ca_indexes)
+        constraint_q_t = tf.gather_nd(self.constraint_qs_t, ca_indexes)
 
         # Predicted constraint next state given inv dyns
         if adt:
@@ -152,16 +157,31 @@ class InverseDynamicsLearner():
         target_t_sgq = self.constraint_rew_t_ph + gamma * tf.reduce_sum(softmax_V_sgq, axis=1)
         self.td_err_sgq = tf.reduce_mean((tf.stop_gradient(constraint_q_t) - target_t_sgq) ** 2)
 
+        # True Qs for testing
+        self.test_q_obs_t_feats_ph = tf.placeholder(tf.int32, [None, n_obs_feats], name="tqotf")
+        self.test_qs_t = build_mlp(self.test_q_obs_t_feats_ph,
+                                    n_act_dim, q_scope,
+                                    n_layers=q_n_layers, size=q_layer_size,
+                                    activation=q_layer_activation, output_activation=q_output_activation,
+                                    reuse=True)
+        self.true_q_err = tf.reduce_sum((self.true_qs_ph - self.test_qs_t)**2)
+
         self.loss_fns = np.array([self.neg_avg_act_log_likelihood, self.neg_avg_trans_log_likelihood,
-                         self.td_err, self.td_err_sgq, self.td_err_sgt])
-        self.loss_fns_titles = np.array(['nall', 'ntll', 'tde', 'tde_sg_q', 'tde_sg_t'])
+                         self.td_err, self.td_err_sgq, self.td_err_sgt, self.true_q_err])
+        self.loss_fns_titles = np.array(['nall', 'ntll', 'tde', 'tde_sg_q', 'tde_sg_t', 'true_q_err'])
 
         self.log_losses = self.loss_fns[:3]
         self.log_loss_titles = self.loss_fns_titles[:3]
 
+        self.regime = None
+
 
     def initialize_training_regime(self, regime, regime_params, validation_freq=20):
         assert(regime in ["MGDA", "coordinate", "weighted"])
+
+        if self.regime is not None:
+            print("Already initialized, create new learner instead")
+            return
 
         self.regime = regime
         self.validation_freq = validation_freq
@@ -170,9 +190,9 @@ class InverseDynamicsLearner():
             losses = regime_params['losses']
             loss_weights = regime_params['loss_weights']
             assert len(losses) == len(loss_weights)
-            self.weighted_loss = [losses[i] * loss_weights[i] for i in range(len(losses))]
-            self.log_losses = np.concatenate([self.log_losses, [self.weighted_loss]])
-            self.log_loss_titles = np.concatenate([self.log_loss_titles, ["weighted_loss"]])
+            self.weighted_loss = sum([self.loss_fns[losses[i]] * loss_weights[i] for i in range(len(losses))])
+            self.log_losses = np.append(self.log_losses, [self.weighted_loss])
+            self.log_loss_titles = np.append(self.log_loss_titles, ["weighted_loss"])
             self.update = tf.train.AdamOptimizer().minimize(self.weighted_loss)
 
         if regime == "coordinate":
@@ -223,7 +243,8 @@ class InverseDynamicsLearner():
         tf.global_variables_initializer().run(session=self.sess)
 
         tab_model_out_dir = os.path.join(out_dir, "tab")
-        os.makedirs(tab_model_out_dir)
+        if not os.path.exists(tab_model_out_dir):
+            os.makedirs(tab_model_out_dir)
 
         # Load pretrained models with same scope
         if q_source_path is not None:
@@ -299,13 +320,14 @@ class InverseDynamicsLearner():
 
 
                 if train_time % tab_save_freq == 0 and train_time != 0:
-                    q_vals = self.sess.run([self.constraint_q_ts], feed_dict={self.constraint_obs_t_feats_ph: q_states})[0]
-                    adt_probs = self.sess.run([self.pred_obs], feed_dict={self.demo_tile_t_ph: adt_samples[:, 0][np.newaxis].T,
-                                                                    self.demo_act_t_ph: adt_samples[:, 1][np.newaxis].T})[0]
-                    # print(q_vals)
-                    # print(softmax(adt_probs))
+                    # self.mdp only used in this section, can remove that dependency if we want
+                    q_vals = self.sess.run([self.test_qs_t], feed_dict={self.test_q_obs_t_feats_ph: q_states})[0]
+                    adt_logits = self.sess.run([self.pred_obs], feed_dict={self.demo_tile_t_ph: adt_samples[:,0][np.newaxis].T,
+                                                                    self.demo_act_t_ph: adt_samples[:,1][np.newaxis].T})[0]
+                    adt_probs = softmax(adt_logits)
+                    adt_probs = adt_probs.reshape(self.mdp.tile_types, self.mdp.num_actions, self.mdp.num_directions)
                     pkl.dump(q_vals, open(os.path.join(tab_model_out_dir, 'q_vals_{}.pkl'.format(train_time)), 'wb'))
-                    pkl.dump(softmax(adt_probs), open(os.path.join(tab_model_out_dir, 'adt_probs_{}.pkl'.format(train_time)), 'wb'))
+                    pkl.dump(adt_probs, open(os.path.join(tab_model_out_dir, 'adt_probs_{}.pkl'.format(train_time)), 'wb'))
 
 
 

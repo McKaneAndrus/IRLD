@@ -41,11 +41,11 @@ def get_demos(mdp, gamma, temp_boltz_beta, n_demos, demo_time_steps):
     val_demo_batch = sample_batch(nn_rollouts, val_idxes)
 
     # True q-vals for debugging and comparison purposes
-    Qs = tabsoftq_learn_Qs(mdp, gamma=gamma)
-    sa = np.transpose(
-        [np.tile(np.arange(mdp.num_states), mdp.num_actions), np.repeat(np.arange(mdp.num_actions), mdp.num_states)])
-    states, acts = sa[:, 0], sa[:, 1]
-    true_qs = Qs[states, acts]
+    true_qs = tabsoftq_learn_Qs(mdp, gamma=gamma)
+    # sa = np.transpose(
+    #     [np.tile(np.arange(mdp.num_states), mdp.num_actions), np.repeat(np.arange(mdp.num_actions), mdp.num_states)])
+    # states, acts = sa[:, 0], sa[:, 1]
+    # true_qs = Qs[states, acts]
 
     # Preprocessing for training update visualizations
     tts = np.arange(mdp.tile_types)

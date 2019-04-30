@@ -25,53 +25,7 @@ DIRARRAY = np.array([[-1, 0],
 
 
 MAPS = {
-    "9x9_multigoal": [
-        "F2FFUFF1F",
-        "FFFBFBFFF",
-        "FFFFFFFFF",
-        "BFBBBBBFB",
-        "FFFFSFFFF",
-        "FFFFFFFFF",
-        "FFBBBBBFF",
-        "FUFB3BFUF",
-        "1FFFFFFF2"
-    ],
-    "5x5_multigoal": [
-        "1FFF2",
-        "FBFUF",
-        "1B2BF",
-        "FFFUF",
-        "SFFB3"
-    ],
-    "5x5_contested": [
-        "1UUU2",
-        "UBUUU",
-        "1B2BU",
-        "UUUUU",
-        "SUUB3"
-    ],
-    "4x4_multigoal": [
-        "FFFF",
-        "2B1U",
-        "FUFF",
-        "SFB3"
-    ],
-    "6x6_v1": [
-        "1FUUU3",
-        "FFFFFF",
-        "BFBUBF",
-        "1FUBF2",
-        "FUFUUU",
-        "FSUBF2"
-    ],
-    "6x6_v2": [
-        "1FUUUF",
-        "FUFB3F",
-        "FFFSBF",
-        "UFFBF1",
-        "2FUFFF",
-        "FFUBF2"
-    ],
+
 }
 
 
@@ -115,8 +69,21 @@ class MarsExplorerEnv(DiscreteEnv):
         self.nrow, self.ncol = nrow, ncol = desc.shape
         self.penalty = time_penalty
         self.potential_goal_states = []
-        self.t_mat, self.theta_mat = None, None
-        self.tile_types = 2  # Hard coded but shouldn't necessarily be. Should include a "Tile map"
+        self.t_mat = None
+
+        # TODO figure out if making this change breaks downstream
+        # self.transition_dict = transition_dict
+        # self.tile_transition_map = {}
+        #
+        # tt = 0
+        # for key in transition_dict.keys():
+        #     if transition_dict[key] not in self.tile_transition_map:
+        #         self.tile_transition_map[transition_dict[key]] = tt
+        #         tt += 1
+        #
+        # self.tile_types = len(self.tile_transition_map.keys())
+
+        self.tile_types = 2
 
 
         # Rotational dir_dict
@@ -126,10 +93,10 @@ class MarsExplorerEnv(DiscreteEnv):
            (0, self.nrow-1): 3,
            (0, 0): 4}
 
-        self.nA = num_actions = 5
-        self.nmA = nmA = 4
+        num_actions = 5
+        num_movement_actions = 4
         num_states = nrow * ncol
-        self.nD = 5
+        self.num_directions = 5
 
         # flat_desc = desc.flatten()
         # nonGoalChars = b'BFUS'
@@ -177,13 +144,13 @@ class MarsExplorerEnv(DiscreteEnv):
                     else:
                         transitions = transition_dict[letter]
                         probs = [(transitions[0], a),
-                                 (transitions[1], (a-1) % nmA),
-                                 (transitions[1], (a+1) % nmA),
-                                 (transitions[2], (a + 2) % nmA),
+                                 (transitions[1], (a-1) % num_movement_actions),
+                                 (transitions[1], (a+1) % num_movement_actions),
+                                 (transitions[2], (a+2) % num_movement_actions),
                                  (transitions[3], NOOP)]
                         li_dict = {}
                         for p, b in probs:
-                            newrow, newcol = self.inc(row, col, b)
+                            newrow, newcol = self._inc(row, col, b)
                             newletter = desc[newrow, newcol]
                             newstate = to_s(newrow, newcol) if newletter not in b'B' else s
                             if newstate in li_dict:
@@ -202,6 +169,9 @@ class MarsExplorerEnv(DiscreteEnv):
         self.adt_map[self.adt_mask] = [(0, 0, 0) for _ in range(len(self.adt_mask[0]))]
 
         super(MarsExplorerEnv, self).__init__(num_states, num_actions, P, isd)
+
+        #TODO Doesn't need to be so hacky about letter types, can instead uncomment above section and take tile_transition_map
+        self.adt_mat = self._get_adt_transition_matrix(transition_dict, [b'F', b'U'])
 
 
 
@@ -235,7 +205,7 @@ class MarsExplorerEnv(DiscreteEnv):
         s = np.array(s)
         if len(s.shape) == 1:
             s = np.transpose(np.vectorize(self.s_to_grid)(s))
-        sprime = np.moveaxis(np.tile(s, (self.nD, 1, 1)), 0, 2)
+        sprime = np.moveaxis(np.tile(s, (self.num_directions, 1, 1)), 0, 2)
         for i in range(DIRARRAY.shape[0]):
             sprime[:, :, i] += DIRARRAY[i]
         sprime[:, 0, :] %= self.ncol
@@ -285,7 +255,7 @@ class MarsExplorerEnv(DiscreteEnv):
     def sd_to_sprime(self, s, d):
         # Make rotational instead to make dynamics consistent
         c, r = self.s_to_grid(s)
-        row, col = self.inc(r, c, d)
+        row, col = self._inc(r, c, d)
         return row*self.ncol + col
 
     def sim_step(self, s, a):
@@ -295,7 +265,7 @@ class MarsExplorerEnv(DiscreteEnv):
         return s, r, d
 
     # Now rotational to make dynamics consistent
-    def inc(self, row, col, a):
+    def _inc(self, row, col, a):
         if a == 0:  # left
             col = (col - 1) % self.ncol
         elif a == 1:  # down
@@ -327,6 +297,29 @@ class MarsExplorerEnv(DiscreteEnv):
 
         self.t_mat = transition_matrix
         return self.t_mat
+
+    def _get_adt_transition_matrix(self, transition_dict, ex_tiles):
+        """Return a matrix with index T,A,D -> P(D|A,T)
+            This disgusts me and we should just be constructing this matrix in the init fn
+            Ideally this would be modular for any number of tile_types"""
+
+        transition_matrix = np.zeros([self.tile_types, self.num_actions, self.num_directions])
+
+        noop_trans = np.zeros(self.num_directions)
+        noop_trans[-1] = 1.0
+        for tt, letter in enumerate(ex_tiles):
+            transitions = transition_dict[letter]
+            for a in range(self.num_actions):
+                if a == NOOP:
+                    transition_matrix[tt, a, :] = noop_trans
+                else:
+                    transition_matrix[tt,a,a] = transitions[0]
+                    transition_matrix[tt, a, (a - 1) % (self.num_actions-1)] = transitions[1]
+                    transition_matrix[tt, a, (a + 1) % (self.num_actions-1)] = transitions[1]
+                    transition_matrix[tt, a, (a + 2) % (self.num_actions-1)] = transitions[2]
+                    transition_matrix[tt, a, NOOP] = transitions[3]
+
+        return transition_matrix
 
 class GridTwoHotEncoding(gym.Space):
     """
