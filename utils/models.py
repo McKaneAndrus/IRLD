@@ -302,7 +302,6 @@ class InverseDynamicsLearner():
                     # Inefficient, takes gradients twice when we could just feed the gradients back in
                     self.sess.run(self.updates, feed_dict=feed_dict)
 
-
                 for i, loss in enumerate(loss_data):
                     full_train_logs[self.log_loss_titles[i]] += [loss]
 
@@ -344,6 +343,14 @@ class InverseDynamicsLearner():
             pass
 
         # Save as file
+        q_vals = self.sess.run([self.test_qs_t], feed_dict={self.test_q_obs_t_feats_ph: q_states})[0]
+        adt_logits = self.sess.run([self.pred_obs], feed_dict={self.demo_tile_t_ph: adt_samples[:, 0][np.newaxis].T,
+                                                               self.demo_act_t_ph: adt_samples[:, 1][np.newaxis].T})[0]
+        adt_probs = softmax(adt_logits)
+        adt_probs = adt_probs.reshape(self.mdp.tile_types, self.mdp.num_actions, self.mdp.num_directions)
+        pkl.dump(q_vals, open(os.path.join(out_dir, 'q_vals.pkl'), 'wb'))
+        pkl.dump(adt_probs, open(os.path.join(out_dir, 'adt_probs.pkl'), 'wb'))
+
         q_f = os.path.join(out_dir, "q_fn")
         dyn_f = os.path.join(out_dir, "dyn_fn")
         save_tf_vars(self.sess, self.q_scope, q_f)

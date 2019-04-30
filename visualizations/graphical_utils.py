@@ -27,19 +27,19 @@ cdict = {'red':   ((0.0,  0.173, 0.173),
 plt.register_cmap(name='RustPlanet', data=cdict)
 REWARD_COLORS = cm.get_cmap('RustPlanet')
 AGENT_COLORS = cm.get_cmap('gray')
-MAP_COLORS = {b'B':"#3a0e00",
-              b'F':"#933111",
-              b'S':"#933111",
-              b'U':"#d65b33",
-              b'1':"#956F52",
-              b'2':"#3C2F34",
-              b'3':"#644C42"}
+MAP_COLORS = {b'B': "#3a0e00",
+              b'F': "#933111",
+              b'S': "#933111",
+              b'U': "#d65b33",
+              b'1': "#956F52",
+              b'2': "#3C2F34",
+              b'3': "#644C42"}
 
-ROVER_PNGS = {LEFT:"rover_left.png",
-        RIGHT:"rover_right.png",
-        DOWN:"rover_down.png",
-        UP:"rover_up.png",
-        NOOP:"rover_sample.png"}
+ROVER_PNGS = {LEFT: "resources/rover_left.png",
+              RIGHT: "resources/rover_right.png",
+              DOWN: "resources/rover_down.png",
+              UP: "resources/rover_up.png",
+              NOOP: "resources/rover_sample.png"}
 
 
 def plot_mars(game, pi, folder, t, a, V=None, s=None, b=None, title=None, counts = None):
@@ -84,7 +84,7 @@ def plot_mars(game, pi, folder, t, a, V=None, s=None, b=None, title=None, counts
     fig.text(0.13, 0.05, 't: {}'.format(t), ha='left', fontsize=10)
     if counts:
         fig.text(0.87, 0.05, 'F: {}  L/R: {}  B: {}  S: {}'.format(counts['F'], counts['LR'], counts['B'], counts['S']), ha='right', fontsize=10)
-    sns.despine(bottom=True,left=True,right=True,top=True)
+    sns.despine(bottom=True, left=True, right=True, top=True)
     plt.savefig(folder+"/"+str(t)+".png", format='png')
     return
 
