@@ -66,13 +66,13 @@ def dynamicsVis(data, algo_labels, tile_labels, out_file='tmp.png', fig_width=8,
         addBoxedText(act_i + 11./8, top_row_i - algo_i - 3./8, 1./4, 1./4,
           act[0], greenFill(act[0]), plt, ax)
         addBoxedText(act_i + 9./8, top_row_i - algo_i - 5./8, 1./4, 1./4,
-          act[0], greenFill(act[1]), plt, ax)
+          act[1], greenFill(act[1]), plt, ax)
         addBoxedText(act_i + 11./8, top_row_i - algo_i - 5./8, 1./4, 1./4,
-          act[0], greenFill(act[4]), plt, ax)
+          act[4], greenFill(act[4]), plt, ax)
         addBoxedText(act_i + 13./8, top_row_i - algo_i - 5./8, 1./4, 1./4,
-          act[0], greenFill(act[2]), plt, ax)
+          act[2], greenFill(act[2]), plt, ax)
         addBoxedText(act_i + 11./8, top_row_i - algo_i - 7./8, 1./4, 1./4,
-          act[0], greenFill(act[3]), plt, ax)
+          act[3], greenFill(act[3]), plt, ax)
         ax.add_patch(Rectangle(
           (act_i + 1, top_row_i - algo_i - 1), 1, 1, fill=False, linewidth=3))
 
