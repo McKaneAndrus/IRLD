@@ -20,7 +20,7 @@ ROVER_PNGS = {LEFT: "resources/rover_left.png",
 
 MAP_COLORS = {b'B': "#3a0e00",
               b'F': "#933111",
-              b'S': "#933111",
+              b'S': "#933B11",
               b'U': "#d65b33",
               b'1': "#956F52",
               b'2': "#3C2F34",

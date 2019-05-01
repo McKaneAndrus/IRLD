@@ -352,8 +352,10 @@ class InverseDynamicsLearner():
                                                                self.demo_act_t_ph: adt_samples[:, 1][np.newaxis].T})[0]
         adt_probs = softmax(adt_logits)
         adt_probs = adt_probs.reshape(self.mdp.tile_types, self.mdp.num_actions, self.mdp.num_directions)
-        pkl.dump(q_vals, open(os.path.join(out_dir, 'q_vals.pkl'), 'wb'))
-        pkl.dump(adt_probs, open(os.path.join(out_dir, 'adt_probs.pkl'), 'wb'))
+        pkl.dump(q_vals, open(os.path.join(tab_model_out_dir, 'final_q_vals.pkl'), 'wb'))
+        pkl.dump(adt_probs, open(os.path.join(tab_model_out_dir, 'final_adt_probs.pkl'), 'wb'))
+
+        pkl.dump(self.mdp, open(os.path.join(out_dir, 'mdp.pkl'), 'wb'))
 
         q_f = os.path.join(out_dir, "q_fn")
         dyn_f = os.path.join(out_dir, "dyn_fn")

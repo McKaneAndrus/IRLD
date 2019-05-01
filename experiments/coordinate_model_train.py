@@ -63,7 +63,55 @@ def default_config():
 
     tab_save_freq = 50
 
+@ex.named_config
+def simple_map_config():
+    mdp_num = 0
 
+    gamma = 0.99
+    alpha = 1e-4
+    beta1 = 0.9
+    beta2 = 0.999999
+    sq_td_err_penalty = 1
+    trans_penalty = 1
+    t_err_penalty = 1e0
+    q_err_penalty = 1e0
+    constraint_batch_size = None
+
+    q_n_layers = 2
+    q_layer_size = 2048
+    q_activation = tf.nn.tanh
+    q_output_activation = None
+
+    dyn_n_layers = 1
+    dyn_layer_size = 256
+    dyn_activation = tf.nn.relu
+    dyn_output_activation = None
+
+
+    # Boltz-beta determines the "rationality" of the agent being modeled.
+    # Setting it to higher values corresponds to "pure rationality"
+    boltz_beta = 50
+
+
+
+    #DEMO Config
+    gamma_demo = 0.99
+    n_demos = 200
+    demo_time_steps = 40
+    temp_boltz_beta = 50
+
+
+    #Coordinate Config
+    batch_size = 200
+    n_training_iters = 500000
+    horizon = 1000
+    slope_threshold = 1e-4
+    switch_frequency = 500
+    # Config made up of ['nall', 'ntll', 'tde', 'tde_sg_q', 'tde_sg_t']
+    initial_update = [1]
+    update_progression = [[4],[0,1,3]]
+
+    tab_save_freq = 50
 
 
 

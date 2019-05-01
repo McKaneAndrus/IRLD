@@ -29,6 +29,7 @@ def make_map(height, width, clustering_iterations = 0, seed=0):
     tile_map = np.random.choice(TILE_TYPES, size=(height, width))
     tile_proportions = {tt:len(np.nonzero(tile_map == tt)[0])/total for tt in TILE_TYPES}
 
+    # Resample tiles for tile-types whose proportions are greater than their max
     maxed_out = [tt for tt in TILE_MAXES.keys() if tile_proportions[tt] > TILE_MAXES[tt] + 1/total]
     exchange_chars = [tt for tt in TILE_TYPES if tt not in maxed_out]
     while len(maxed_out) > 0:
@@ -44,6 +45,7 @@ def make_map(height, width, clustering_iterations = 0, seed=0):
         exchange_chars = [tt for tt in exchange_chars if tt not in maxed_out]
 
 
+    # Resample random tiles and assign to tile-types whose proportions are less than their min
     while any([tile_proportions[tt] < TILE_MINS[tt] for tt in TILE_MINS.keys()]):
         for tt in TILE_MINS.keys():
             exchanges = max(int((TILE_MINS[tt] - tile_proportions[tt]) * total), 0)
