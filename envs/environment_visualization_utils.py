@@ -12,11 +12,11 @@ RIGHT = 2
 UP = 3
 NOOP = 4
 
-ROVER_PNGS = {LEFT: "utils/rover_left.png",
-              RIGHT: "utils/rover_right.png",
-              DOWN: "utils/rover_down.png",
-              UP: "utils/rover_up.png",
-              NOOP: "utils/rover_sample.png"}
+ROVER_PNGS = {LEFT: "resources/rover_left.png",
+              RIGHT: "resources/rover_right.png",
+              DOWN: "resources/rover_down.png",
+              UP: "resources/rover_up.png",
+              NOOP: "resources/rover_sample.png"}
 
 MAP_COLORS = {b'B': "#3a0e00",
               b'F': "#933111",
@@ -151,5 +151,28 @@ def plot_tile_map(mdp):
     binary_map[np.where(mdp.tile_map == b'S')] = 255.0
     plt.imshow(binary_map, cmap="Blues")
     plt.title("Starting positions")
+    plt.show()
+
+
+def plot_mars_map(mdp, s=None):
+    if s is None:
+        s = mdp.state
+    background = np.array([colors.to_rgb(MAP_COLORS[l]) for l in mdp.tile_map.flat]).reshape(mdp.nrow, mdp.ncol, 3)
+    fig = plt.figure(figsize=(4, 4))
+    plt.imshow(background)
+    plt.axes().get_xaxis().set_visible(False)
+    plt.axes().get_yaxis().set_visible(False)
+    ax = plt.gca()
+    img_path = ROVER_PNGS[4]
+    arr_hand = read_png(img_path)
+    imagebox = OffsetImage(arr_hand, zoom=.5)
+    xy = [s % background.shape[1], s // background.shape[1]]  # coordinates to position this image
+    ab = AnnotationBbox(imagebox, xy,
+                        xybox=(0, 0),
+                        xycoords='data',
+                        boxcoords="offset points",
+                        frameon=False)
+    ax.add_artist(ab)
+    sns.despine(bottom=True, left=True, right=True, top=True)
     plt.show()
 

@@ -2,6 +2,9 @@ import numpy as np
 from collections import Counter
 import pickle as pkl
 import os
+from envs.environment_visualization_utils import plot_mars_map
+from envs.environment_setup_utils import get_mdp_from_map
+
 
 TILE_TYPES = ['S', 'F', 'U', '1', '2', '3']
 
@@ -19,8 +22,9 @@ TILE_PROXIMITY_BOOST = {'F':0.5,
 
 DEFAULT_WEIGHT = 1.0
 
-def make_map(height, width, clustering_iterations = 0):
+def make_map(height, width, clustering_iterations = 0, seed=0):
 
+    np.random.seed(seed)
     total = float(height * width)
     tile_map = np.random.choice(TILE_TYPES, size=(height, width))
     tile_proportions = {tt:len(np.nonzero(tile_map == tt)[0])/total for tt in TILE_TYPES}
@@ -66,13 +70,18 @@ def make_map(height, width, clustering_iterations = 0):
     string_tile_map = ["".join(row) for row in tile_map]
     return string_tile_map
 
-def make_maps(height, width, n_maps, output_dir=None, clustering_iterations=0):
+def make_maps(height, width, n_maps, output_dir=None, clustering_iterations=0, seed=0):
 
     maps = [make_map(height,width, clustering_iterations=clustering_iterations) for _ in range(n_maps)]
-    if output_dir is None:
-        return maps
-    pkl.dump(maps, open(os.path.join(output_dir, "mars_maps_{}_{}_{}.pkl".format(height,width,clustering_iterations))))
+    if output_dir is not None:
+        pkl.dump(maps, open(os.path.join(output_dir, "mars_maps_{}_{}_{}.pkl".format(
+                                                    height,width,clustering_iterations, seed))))
     return maps
+
+
+def visualize_map(tile_map):
+    mdp = get_mdp_from_map(tile_map)
+    plot_mars_map(mdp)
 
 
 
@@ -89,4 +98,6 @@ def _get_all_adjacent_tiles(tile_map, h, w):
 
 
 if __name__ == "__main__":
-    make_maps(15,15, 10,  clustering_iterations=10)
+    # make_maps(15,15, 10,  clustering_iterations=10)
+    tile_map = make_map(15,15, 10, 0)
+    visualize_map(tile_map)

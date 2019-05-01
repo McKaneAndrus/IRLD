@@ -138,5 +138,9 @@ def build_reward_map(tile_map, tile_rewards, goal_tile_rewards, tile_reward_modi
 def get_mdp(tile_map_index):
     reward_map, texture_map = build_reward_map(TILE_MAPS[tile_map_index], tile_rewards,
                                                goal_tile_rewards, tile_reward_modifier)
+    return MarsExplorerEnv(tile_map, reward_map, texture_map, trans_dict, time_penalty)
 
+def get_mdp_from_map(tile_map):
+    reward_map, texture_map = build_reward_map(tile_map, tile_rewards,
+                                               goal_tile_rewards, tile_reward_modifier)
     return MarsExplorerEnv(tile_map, reward_map, texture_map, trans_dict, time_penalty)
