@@ -68,7 +68,7 @@ def default_config():
 
 
 @ex.automain
-def mgda_train(_run, mdp_num, gamma, alpha, beta1, beta2, constraint_batch_size, q_n_layers, q_layer_size, q_activation,
+def coordinate_train(_run, mdp_num, gamma, alpha, beta1, beta2, constraint_batch_size, q_n_layers, q_layer_size, q_activation,
             q_output_activation, dyn_n_layers, dyn_layer_size, dyn_activation, dyn_output_activation, boltz_beta,
             gamma_demo, temp_boltz_beta, n_demos, demo_time_steps, n_training_iters, batch_size,
             horizon, slope_threshold, switch_frequency, initial_update, update_progression, tab_save_freq):
@@ -106,6 +106,7 @@ def mgda_train(_run, mdp_num, gamma, alpha, beta1, beta2, constraint_batch_size,
 
     out_dir = os.path.join("logs", "models", str(_run._id))
 
-    model.train(n_training_iters, rollouts, train_idxes, batch_size, constraints, val_demo_batch, out_dir, states, adt_samples, tab_save_freq,  _run)
+    model.train(n_training_iters, rollouts, train_idxes, batch_size, constraints, val_demo_batch, out_dir,
+                states, adt_samples, tab_save_freq,  _run, true_qs)
 
     return _run._id

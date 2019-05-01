@@ -92,7 +92,7 @@ def mgda_train(_run, mdp_num, gamma, alpha, beta1, beta2, constraint_batch_size,
 
     out_dir = os.path.join("logs", "models", str(_run._id))
 
-    model.train(n_training_iters, rollouts, train_idxes, batch_size, constraints, val_demo_batch, out_dir, states, adt_samples, tab_save_freq, _run)
+    model.train(n_training_iters, rollouts, train_idxes, batch_size, constraints, val_demo_batch, out_dir, states, adt_samples, tab_save_freq, _run, true_qs)
 
     return _run._id
 

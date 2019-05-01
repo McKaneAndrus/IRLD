@@ -236,15 +236,19 @@ class InverseDynamicsLearner():
 
 
     def train(self, n_training_iters, rollouts, train_idxes, batch_size, constraints, val_demo_batch, out_dir,
-              q_states, adt_samples, tab_save_freq = 1000, _run=None, verbose=True, q_source_path=None, dyn_source_path=None):
+              q_states, adt_samples, tab_save_freq = 1000, _run=None, true_qs=None, verbose=True, q_source_path=None, dyn_source_path=None):
 
         assert(self.regime is not None)
 
         tf.global_variables_initializer().run(session=self.sess)
 
+        # Tabular logging setup
         tab_model_out_dir = os.path.join(out_dir, "tab")
         if not os.path.exists(tab_model_out_dir):
             os.makedirs(tab_model_out_dir)
+        if true_qs is not None:
+            pkl.dump(true_qs, open(os.path.join(tab_model_out_dir, 'true_q_vals.pkl'), 'wb'))
+        pkl.dump(self.mdp.adt_mat, open(os.path.join(tab_model_out_dir, 'true_adt_probs.pkl'), 'wb'))
 
         # Load pretrained models with same scope
         if q_source_path is not None:
@@ -266,14 +270,14 @@ class InverseDynamicsLearner():
             full_train_logs["frank_wolfe"] = []
 
 
-        val_feed = self._get_feed_dict(val_demo_batch, constraints)
+        val_feed = self._get_feed_dict(val_demo_batch, constraints, true_qs=true_qs)
 
         try:
 
             while train_time < n_training_iters:
 
                 demo_batch = sample_batch(rollouts, train_idxes, batch_size)
-                feed_dict = self._get_feed_dict(demo_batch, constraints)
+                feed_dict = self._get_feed_dict(demo_batch, constraints, true_qs=true_qs)
 
                 if self.regime == "weighted":
                     loss_data = self.sess.run(list(self.log_losses) + [self.update], feed_dict=feed_dict)[:-1]
@@ -373,7 +377,7 @@ class InverseDynamicsLearner():
         return switch
 
 
-    def _get_feed_dict(self, batch, constraints):
+    def _get_feed_dict(self, batch, constraints, true_qs=None):
 
         feed_dict = {
             self.demo_obs_t_feats_ph: batch[1],
@@ -387,5 +391,8 @@ class InverseDynamicsLearner():
             self.constraint_next_obs_t_feats_ph: constraints[3],
             self.constraint_tile_t_ph: constraints[4],
             self.constraint_batch_size_ph: constraints[0].shape[0]}
+
+        if true_qs is not None:
+            feed_dict[self.true_qs_ph] = true_qs
 
         return feed_dict
