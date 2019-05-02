@@ -104,17 +104,26 @@ def config():
     del _
 
 
-def load_dynamics(experiment_num):
-    data = pkl.load(open(os.path.join("logs", "models", str(experiment_num), "tab", "final_adt_probs.pkl"), "rb"))
 
-    return np.array([data])
+def load_dynamics(experiment_nums):
+    data = [pkl.load(open(os.path.join("logs", "models", str(experiment_num), "tab", "final_adt_probs.pkl"), "rb")) for experiment_num in experiment_nums]
+    return np.array(data)
 
 
 @dynamics_visualization.automain
-def main(out_dir, _run, experiment_num, alg_labels, tile_labels, fig_width, margin):
+def main(out_dir, _run, experiment_nums, alg_labels, tile_labels, fig_width, margin):
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 
-    data = load_dynamics(experiment_num)
-    out_file = os.path.join(out_dir, "dynamics_visualization_{}_from_{}.png".format(_run._id, experiment_num))
+    if len(experiment_nums) != len(alg_labels):
+        raise Exception("Was given {} experiements and {} alg labels, these must match".format(len(experiment_nums),
+                                                                                               len(alg_labels)))
+
+    data = load_dynamics(experiment_nums)
+
+    if len(data[0]) != len(tile_labels):
+        raise Exception("Had {} tile types and {} tile labels, these must match".format(len(data[0]),
+                                                                                        len(tile_labels)))
+    
+    out_file = os.path.join(out_dir, "dynamics_visualization_{}_from_{}.png".format(_run._id, experiment_nums))
     visualize_dynamics(data, alg_labels, tile_labels, out_file, fig_width, margin)

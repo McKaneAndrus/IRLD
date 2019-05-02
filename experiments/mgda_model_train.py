@@ -9,11 +9,11 @@ from utils.demos_utils import get_demos
 from utils.experiment_utils import current_milli_time
 from utils.models import InverseDynamicsLearner
 
-ex = Experiment()
-ex.observers.append(FileStorageObserver.create('logs/sacred'))
+mgda_model_train_ex = Experiment("mgda_model_train")
+mgda_model_train_ex.observers.append(FileStorageObserver.create('logs/sacred'))
 
 
-@ex.config
+@mgda_model_train_ex.config
 def default_config():
     mdp_num = 0
 
@@ -56,7 +56,7 @@ def default_config():
 
     tab_save_freq = 50
 
-@ex.named_config
+@mgda_model_train_ex.named_config
 def simple_map_config_no_mellow_pretrain():
     mdp_num = 0
 
@@ -97,7 +97,7 @@ def simple_map_config_no_mellow_pretrain():
 
     tab_save_freq = 50
 
-@ex.named_config
+@mgda_model_train_ex.named_config
 def simple_map_config_mellow_pretrain():
     mdp_num = 0
 
@@ -144,7 +144,7 @@ def simple_map_config_mellow_pretrain():
 
     tab_save_freq = 50
 
-@ex.automain
+@mgda_model_train_ex.automain
 def mgda_train(_run, mdp_num, gamma, alpha, beta1, beta2, constraint_batch_size, q_n_layers, q_layer_size, q_activation,
             q_output_activation, dyn_n_layers, dyn_layer_size, dyn_activation, dyn_output_activation, boltz_beta, mellowmax,
             gamma_demo, temp_boltz_beta, n_demos, demo_time_steps, n_training_iters, dyn_pretrain_iters, batch_size,
