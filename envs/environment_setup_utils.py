@@ -14,7 +14,7 @@ tile_map = [
     ]
 
 tile_map2 = [
-        "2FFFFFFF1",
+        "FFFFFFFF1",
         "FFFFFFFFF",
         "FFFFUFFFF",
         "FFFUUUFSF",

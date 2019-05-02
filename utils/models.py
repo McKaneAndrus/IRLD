@@ -391,7 +391,7 @@ class InverseDynamicsLearner():
 
         if switch:
             self.curr_update_index = (self.curr_update_index + 1) % len(self.update_progression)
-            print("Switching to loss config {}".format(self.curr_update_index))
+            print("Loss delta at {}, switching to loss config {}".format(-slope, self.curr_update_index))
             self.curr_loss = self.loss_progression[self.curr_update_index]
             self.curr_update = self.update_progression[self.curr_update_index]
 

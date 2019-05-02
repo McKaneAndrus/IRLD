@@ -105,7 +105,7 @@ def config():
 
 
 def load_dynamics(experiment_num):
-    data = pkl.load(open(os.path.join("logs", "models", str(experiment_num), "adt_probs.pkl"), "rb"))
+    data = pkl.load(open(os.path.join("logs", "models", str(experiment_num), "tab", "final_adt_probs.pkl"), "rb"))
 
     return np.array([data])
 
