@@ -40,7 +40,7 @@ def visualize_dynamics_diff(data, out_file):
     plt.clf()
     plot = sns.lineplot(plot_iters, unobserved_diffs)
     fig = plot.get_figure()
-    plt.title("Difference between Learned and True Observed Dynamics")
+    plt.title("Difference between Learned and True Unobserved Dynamics")
     plt.ylabel("L2 Distance")
     plt.xlabel("Training Iterations")
     fig.savefig(out_file+"_unobserved.png")

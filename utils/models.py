@@ -319,6 +319,8 @@ class InverseDynamicsLearner():
 
                 if train_time % 100 == 0 and verbose:
                     print([(k, full_train_logs["val_" + k][-1]) for k in self.log_loss_titles])
+                    if self.regime == "MGDA":
+                        print(sol)
 
 
 

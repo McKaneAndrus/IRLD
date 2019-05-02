@@ -18,13 +18,11 @@ def default_config():
     mdp_num = 0
 
     gamma = 0.99
+    # TODO decide what to do with these learning params
     alpha = 1e-4
     beta1 = 0.9
     beta2 = 0.999999
-    sq_td_err_penalty = 1
-    trans_penalty = 1
-    t_err_penalty = 1e0
-    q_err_penalty = 1e0
+
     constraint_batch_size = None
 
     q_n_layers = 2
@@ -41,6 +39,8 @@ def default_config():
     # Boltz-beta determines the "rationality" of the agent being modeled.
     # Setting it to higher values corresponds to "pure rationality"
     boltz_beta = 50
+    mellowmax = False
+
 
 
 
@@ -71,10 +71,7 @@ def simple_map_config():
     alpha = 1e-4
     beta1 = 0.9
     beta2 = 0.999999
-    sq_td_err_penalty = 1
-    trans_penalty = 1
-    t_err_penalty = 1e0
-    q_err_penalty = 1e0
+
     constraint_batch_size = None
 
     q_n_layers = 2
@@ -91,6 +88,7 @@ def simple_map_config():
     # Boltz-beta determines the "rationality" of the agent being modeled.
     # Setting it to higher values corresponds to "pure rationality"
     boltz_beta = 50
+    mellowmax = False
 
 
 
@@ -117,7 +115,7 @@ def simple_map_config():
 
 @ex.automain
 def coordinate_train(_run, mdp_num, gamma, alpha, beta1, beta2, constraint_batch_size, q_n_layers, q_layer_size, q_activation,
-            q_output_activation, dyn_n_layers, dyn_layer_size, dyn_activation, dyn_output_activation, boltz_beta,
+            q_output_activation, dyn_n_layers, dyn_layer_size, dyn_activation, dyn_output_activation, boltz_beta, mellowmax,
             gamma_demo, temp_boltz_beta, n_demos, demo_time_steps, n_training_iters, batch_size,
             horizon, slope_threshold, switch_frequency, initial_update, update_progression, tab_save_freq):
 
@@ -137,7 +135,7 @@ def coordinate_train(_run, mdp_num, gamma, alpha, beta1, beta2, constraint_batch
                   'dyn_activation':dyn_activation,
                   'dyn_output_activation':dyn_output_activation}
 
-    model = InverseDynamicsLearner(mdp, sess, mlp_params=mlp_params, boltz_beta=boltz_beta, gamma=gamma) #, q_scope=q_scope, dyn_scope=dyn_scope)
+    model = InverseDynamicsLearner(mdp, sess, mlp_params=mlp_params, boltz_beta=boltz_beta, gamma=gamma, mellowmax=mellowmax) #, q_scope=q_scope, dyn_scope=dyn_scope)
 
     regime_params = {"horizon": horizon,
                      'slope_threshold':slope_threshold,

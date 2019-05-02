@@ -21,10 +21,7 @@ def default_config():
     alpha = 1e-4
     beta1 = 0.9
     beta2 = 0.999999
-    sq_td_err_penalty = 1
-    trans_penalty = 1
-    t_err_penalty = 1e0
-    q_err_penalty = 1e0
+
     constraint_batch_size = None
 
     q_n_layers = 2
@@ -41,6 +38,98 @@ def default_config():
     # Boltz-beta determines the "rationality" of the agent being modeled.
     # Setting it to higher values corresponds to "pure rationality"
     boltz_beta = 50
+    mellowmax = False
+
+
+
+
+    #DEMO Config
+    gamma_demo = 0.99
+    n_demos = 200
+    demo_time_steps = 40
+    temp_boltz_beta = 50
+
+
+    #Frank Wolfe Config
+    batch_size = 200
+    n_training_iters = 1000
+
+    loss_configurations = [[0,3],[1,4]]
+
+    tab_save_freq = 50
+
+@ex.named_config
+def simple_map_config_no_mellow():
+    mdp_num = 0
+
+    gamma = 0.99
+    alpha = 1e-4
+    beta1 = 0.9
+    beta2 = 0.999999
+
+    constraint_batch_size = None
+
+    q_n_layers = 2
+    q_layer_size = 2048
+    q_activation = tf.nn.tanh
+    q_output_activation = None
+
+    dyn_n_layers = 1
+    dyn_layer_size = 256
+    dyn_activation = tf.nn.relu
+    dyn_output_activation = None
+
+
+    # Boltz-beta determines the "rationality" of the agent being modeled.
+    # Setting it to higher values corresponds to "pure rationality"
+    boltz_beta = 50
+    mellowmax = False
+
+
+
+
+    #DEMO Config
+    gamma_demo = 0.99
+    n_demos = 200
+    demo_time_steps = 40
+    temp_boltz_beta = 50
+
+
+    #Frank Wolfe Config
+    batch_size = 200
+    n_training_iters = 1000
+
+    loss_configurations = [[0,3],[1,4]]
+
+    tab_save_freq = 50
+
+@ex.named_config
+def simple_map_config_mellow():
+    mdp_num = 0
+
+    gamma = 0.99
+    alpha = 1e-4
+    beta1 = 0.9
+    beta2 = 0.999999
+
+    constraint_batch_size = None
+
+    q_n_layers = 2
+    q_layer_size = 2048
+    q_activation = tf.nn.tanh
+    q_output_activation = None
+
+    dyn_n_layers = 1
+    dyn_layer_size = 256
+    dyn_activation = tf.nn.relu
+    dyn_output_activation = None
+
+
+    # Boltz-beta determines the "rationality" of the agent being modeled.
+    # Setting it to higher values corresponds to "pure rationality"
+    boltz_beta = 50
+    mellowmax = False
+
 
 
 
@@ -61,7 +150,7 @@ def default_config():
 
 @ex.automain
 def mgda_train(_run, mdp_num, gamma, alpha, beta1, beta2, constraint_batch_size, q_n_layers, q_layer_size, q_activation,
-            q_output_activation, dyn_n_layers, dyn_layer_size, dyn_activation, dyn_output_activation, boltz_beta,
+            q_output_activation, dyn_n_layers, dyn_layer_size, dyn_activation, dyn_output_activation, boltz_beta, mellowmax,
             gamma_demo, temp_boltz_beta, n_demos, demo_time_steps, n_training_iters, batch_size, loss_configurations, tab_save_freq):
 
     os_setup()
@@ -80,7 +169,7 @@ def mgda_train(_run, mdp_num, gamma, alpha, beta1, beta2, constraint_batch_size,
                   'dyn_activation':dyn_activation,
                   'dyn_output_activation':dyn_output_activation}
 
-    model = InverseDynamicsLearner(mdp, sess, mlp_params=mlp_params, boltz_beta=boltz_beta, gamma=gamma) #, q_scope=q_scope, dyn_scope=dyn_scope)
+    model = InverseDynamicsLearner(mdp, sess, mlp_params=mlp_params, boltz_beta=boltz_beta, gamma=gamma, mellowmax=mellowmax) #, q_scope=q_scope, dyn_scope=dyn_scope)
 
     regime_params = {'loss_configurations':loss_configurations}
     model.initialize_training_regime("MGDA", regime_params=regime_params)
