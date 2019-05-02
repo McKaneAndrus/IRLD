@@ -55,7 +55,7 @@ def visualize_dynamics(data, alg_labels, tile_labels, out_file='tmp.png', fig_wi
     ax = fig.add_axes([-margin, -margin, num_cols + 2*margin, num_rows + 2*margin])
     # Set it up so that each full cross takes up a 1x1 space in the axes dimensions.
     plt.xlim([-margin, num_cols + margin])
-    plt.ylim([-margin, num_cols + margin])
+    plt.ylim([-margin, num_rows + margin])
     plt.gca().set_aspect('equal', adjustable='box')
 
     for tile_i, tile in enumerate(tile_labels):
