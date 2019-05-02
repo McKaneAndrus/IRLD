@@ -126,6 +126,9 @@ MAPS = {
 
 
 # TODO: Properly implement GraphEnv
+#
+# How do we represent custom goal (and therefore reward) for this environment? The goal will be given for any
+# arbitrary tile. Same for initial state...
 class GraphEnv(DiscreteEnv):
     """
     Stuff
@@ -133,28 +136,20 @@ class GraphEnv(DiscreteEnv):
 
     metadata = {'render.modes': ['human', 'ansi']}
 
-    def __init__(self, graph_map, seed=None):
-        self.graph_map = graph_map
-        self.step_num = 0
-        if seed is not None:
-            self._seed(seed)
+    def __init__(self, graph, seed=None):
+        self.graph = graph
 
-    def step(self, a):
-        transitions = self.transitions[self.state][a]
-        i = categorical_sample([t[0] for t in transitions], self.np_rng)
-        self.step_num += 5 # probabilistic time taken
-        # probability, state, reward, done (whether it is done)
-        p, s, r, d = transitions[i]
-        # p - probability of having selected this transition
-        # s - state that you are now in after the attempted action
-        # r - Reward given by the transition
-        # d - Have you reached the goal (or run out of time, etc.)
-       
-        # TODO: Is it ok that observed dynamics can be -
-        #   try to go left twice, give up, go right
-        #   Vs. understanding of it takes 3 time to go left so fail twice then succeed
+        num_states = len(graph.get_nodes())
+        num_actions = graph.max_degree
 
-        self.state = s
-        # TODO: Maybe keep track of last action(?) *shrugs*
-        return s, r, d, ..., self.step_num 
+        transitions = {}
+        for node in graph.get_nodes():
+            self.transitions[node] = {}
+            for i, neighbor in enumerate(node.get_padded_neighbors()):
+                self.transitions[node][i] = [(1, neighbor, 0, 0)]
 
+        initial_state_distribution = [1 / num_states] * num_states
+
+        super(GraphEnv, self).__init__(num_states, num_actions, transitions, initial_state_distribution, seed=seed)
+
+    # TODO: Set Reward/Done in initialization and/or in reset
