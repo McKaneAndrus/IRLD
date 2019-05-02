@@ -236,7 +236,8 @@ class InverseDynamicsLearner():
 
 
     def train(self, n_training_iters, rollouts, train_idxes, batch_size, constraints, val_demo_batch, out_dir,
-              q_states, adt_samples, tab_save_freq = 1000, _run=None, true_qs=None, verbose=True, q_source_path=None, dyn_source_path=None):
+                    q_states, adt_samples, dyn_pretrain_iters=0, tab_save_freq = 1000, _run=None, true_qs=None,
+                    verbose=True, q_source_path=None, dyn_source_path=None):
 
         assert(self.regime is not None)
 
@@ -269,12 +270,26 @@ class InverseDynamicsLearner():
         if self.regime == "MGDA":
             full_train_logs["frank_wolfe"] = []
 
-
         val_feed = self._get_feed_dict(val_demo_batch, constraints, true_qs=true_qs)
+
+        if dyn_pretrain_iters > 0:
+            print("Pretraining the dynamics model with baseline method.")
+            temp_update = tf.train.AdamOptimizer().minimize(self.neg_avg_trans_log_likelihood)
+            for i in range(dyn_pretrain_iters):
+                demo_batch = sample_batch(rollouts, train_idxes, batch_size)
+                feed_dict = self._get_feed_dict(demo_batch, constraints)
+                self.sess.run(temp_update, feed_dict=feed_dict)
+
+                if i % self.validation_freq == 0:
+                    val_loss = self.sess.run(self.neg_avg_trans_log_likelihood, feed_dict=val_feed)[0]
+
+                if i % 100 == 0:
+                    print("{}: dyn loss {}".format(i, val_loss))
+
 
         try:
 
-            while train_time < n_training_iters:
+            for train_time in range(n_training_iters):
 
                 demo_batch = sample_batch(rollouts, train_idxes, batch_size)
                 feed_dict = self._get_feed_dict(demo_batch, constraints, true_qs=true_qs)
@@ -322,8 +337,6 @@ class InverseDynamicsLearner():
                     if self.regime == "MGDA":
                         print(sol)
 
-
-
                 if train_time % tab_save_freq == 0 and train_time != 0:
                     # self.mdp only used in this section, can remove that dependency if we want
                     q_vals = self.sess.run([self.test_qs_t], feed_dict={self.test_q_obs_t_feats_ph: q_states})[0]
@@ -334,15 +347,10 @@ class InverseDynamicsLearner():
                     pkl.dump(q_vals, open(os.path.join(tab_model_out_dir, 'q_vals_{}.pkl'.format(train_time)), 'wb'))
                     pkl.dump(adt_probs, open(os.path.join(tab_model_out_dir, 'adt_probs_{}.pkl'.format(train_time)), 'wb'))
 
-
-
                 # Check for update_switching
                 if self.regime == "coordinate" and train_time % self.switch_frequency and self._update_switcher(total_loss):
                     total_loss = []
 
-
-
-                train_time += 1
 
         except KeyboardInterrupt:
             print("Experiment Interrupted at timestep {}".format(train_time))
