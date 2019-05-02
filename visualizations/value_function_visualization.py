@@ -1,3 +1,5 @@
+import matplotlib.cm as cm
+import matplotlib.colors as colors
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -13,13 +15,12 @@ value_function_visualization = Experiment('value_function_visualization')
 value_function_visualization.observers.append(FileStorageObserver.create('logs/sacred'))
 
 
-# TODO: Fill this out for the art version.
-# MAP_COLORS = {b'F': "#933111", # Normal
-#               b'S': "#933111", # Normal (starting point)
-#               b'U': "#d65b33", # Pit
-#               b'1': "reward", # 1
-#               b'2': "reward", # 2
-#               b'3': "reward"} # 8
+MAP_COLORS = {b'F': "#ffffff", # Normal Square
+              b'S': "#ffffff", # Normal Square
+              b'U': "#000000", # Pit
+              b'1': "reward", # Reward Square
+              b'2': "reward", # Reward Square
+              b'3': "reward"} # Reward Square
 
 
 def visualize_value_function(q_val_list, mdp, q_val_labels, out_file):
@@ -46,9 +47,28 @@ def visualize_value_function(q_val_list, mdp, q_val_labels, out_file):
     i_offset = 0
     if len(q_val_list) > 2:
         i_offset = 1
-        # TODO: Add functionality to draw Art vis.
+        num_plots += 1
 
-    for i, q_val in enumerate(q_val_list[i_offset:]):
+        sub_ax = fig.add_subplot(num_plots // 2, 2, 1)
+        sub_ax.set_xticks(np.arange(num_rows) - .5)
+        sub_ax.set_yticks(np.arange(num_cols) - .5)
+        sub_ax.set_xticklabels([])
+        sub_ax.set_yticklabels([])
+
+        plt.title('Art')
+
+        art_map = np.zeros([num_rows, num_cols, 3])
+        max_reward = np.max(mdp.reward_map)
+        for y in range(num_rows):
+            for x in range(num_cols):
+                color = MAP_COLORS[mdp.tile_map[y][x]]
+                if color == 'reward':
+                    color = cm.get_cmap("Blues")(mdp.reward_map[y][x] / max_reward)
+                art_map[y][x] = colors.to_rgb(color)
+
+        plt.imshow(art_map)
+
+    for i, q_val in enumerate(q_val_list):
         # Get the x/y offset for this particular visualization within
         # the larger grid.
         # i_offset depends on whether we're rendering the art version
@@ -57,7 +77,7 @@ def visualize_value_function(q_val_list, mdp, q_val_labels, out_file):
         y_offset = ((i + i_offset) // 2) * (num_rows + 1)
 
 
-        sub_ax = fig.add_subplot(num_plots // 2, 2, i+1)
+        sub_ax = fig.add_subplot(num_plots // 2, 2, i + i_offset + 1)
         sub_ax.set_xticks(np.arange(num_rows) - .5)
         sub_ax.set_yticks(np.arange(num_cols) - .5)
         sub_ax.set_xticklabels([])
