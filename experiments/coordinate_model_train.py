@@ -135,7 +135,8 @@ def coordinate_train(_run, mdp_num, gamma, alpha, beta1, beta2, constraint_batch
                   'dyn_activation':dyn_activation,
                   'dyn_output_activation':dyn_output_activation}
 
-    model = InverseDynamicsLearner(mdp, sess, mlp_params=mlp_params, boltz_beta=boltz_beta, gamma=gamma, mellowmax=mellowmax) #, q_scope=q_scope, dyn_scope=dyn_scope)
+    model = InverseDynamicsLearner(mdp, sess, mlp_params=mlp_params, boltz_beta=boltz_beta, gamma=gamma,
+                                   mellowmax=mellowmax, alpha=alpha, beta1=beta1, beta2=beta2) #, q_scope=q_scope, dyn_scope=dyn_scope)
 
     regime_params = {"horizon": horizon,
                      'slope_threshold':slope_threshold,

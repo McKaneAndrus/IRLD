@@ -61,7 +61,7 @@ def simple_map_config_no_mellow_pretrain():
     mdp_num = 0
 
     gamma = 0.99
-    alpha = 1e-4
+    alpha = 1e-5
     beta1 = 0.9
     beta2 = 0.999999
 
@@ -102,7 +102,7 @@ def simple_map_config_mellow_pretrain():
     mdp_num = 0
 
     gamma = 0.99
-    alpha = 1e-4
+    alpha = 1e-5
     beta1 = 0.9
     beta2 = 0.999999
 
@@ -167,7 +167,7 @@ def mgda_train(_run, mdp_num, gamma, alpha, beta1, beta2, constraint_batch_size,
                   'dyn_output_activation':dyn_output_activation}
 
     model = InverseDynamicsLearner(mdp, sess, mlp_params=mlp_params, boltz_beta=boltz_beta,
-                                   gamma=gamma, mellowmax=mellowmax) #, q_scope=q_scope, dyn_scope=dyn_scope)
+                                   gamma=gamma, mellowmax=mellowmax, alpha=alpha, beta1=beta1, beta2=beta2) #, q_scope=q_scope, dyn_scope=dyn_scope)
 
     regime_params = {'loss_configurations':loss_configurations}
     model.initialize_training_regime("MGDA", regime_params=regime_params)

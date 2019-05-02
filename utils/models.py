@@ -10,12 +10,15 @@ import pickle as pkl
 
 class InverseDynamicsLearner():
 
-    def __init__(self, mdp, sess, gamma=0.99, adt=True, mellowmax=False, boltz_beta=50,
-                 mlp_params=None, dyn_scope="Dynamics", q_scope="Qs"):
+    def __init__(self, mdp, sess, gamma=0.99, adt=True, mellowmax=False, boltz_beta=50, mlp_params=None,
+                    alpha=1e-4, beta1=0.9, beta2=0.999999, dyn_scope="Dynamics", q_scope="Qs"):
 
         mlp_params = {} if mlp_params is None else mlp_params
 
         self.mdp = mdp
+        self.alpha = alpha
+        self.beta1 = beta1
+        self.beta2 = beta2
 
         # TODO Make this retrievable by env observation space
         n_obs_feats = mdp.nrow + mdp.ncol
@@ -193,7 +196,7 @@ class InverseDynamicsLearner():
             self.weighted_loss = sum([self.loss_fns[losses[i]] * loss_weights[i] for i in range(len(losses))])
             self.log_losses = np.append(self.log_losses, [self.weighted_loss])
             self.log_loss_titles = np.append(self.log_loss_titles, ["weighted_loss"])
-            self.update = tf.train.AdamOptimizer().minimize(self.weighted_loss)
+            self.update = tf.train.AdamOptimizer(self.alpha, self.beta1, self.beta1).minimize(self.weighted_loss)
 
         if regime == "coordinate":
             # Coordinate descent training regime
@@ -201,7 +204,7 @@ class InverseDynamicsLearner():
             self.slope_threshold = regime_params["slope_threshold"]
             self.switch_frequency = regime_params["switch_frequency"]
             if regime_params["initial_update"] is not None:
-                self.curr_update = tf.train.AdamOptimizer().minimize(
+                self.curr_update = tf.train.AdamOptimizer(self.alpha, self.beta1, self.beta1).minimize(
                         sum(self.loss_fns[regime_params["initial_update"]]))
                 self.curr_update_index = -1
             else:
@@ -210,7 +213,7 @@ class InverseDynamicsLearner():
             # Update progression is a list of list of ints in the range(len(self.loss_fns))
             losses = [sum(self.loss_fns[config]) for config in regime_params["update_progression"]]
             #TODO Check for equivalent losses
-            self.update_progression = [tf.train.AdamOptimizer().minimize(
+            self.update_progression = [tf.train.AdamOptimizer(self.alpha, self.beta1, self.beta1).minimize(
                     loss, name="opt_{}".format(i)) for i,loss in enumerate(losses)]
 
 
@@ -223,7 +226,7 @@ class InverseDynamicsLearner():
             q_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=self.q_scope)
             t_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=self.dyn_scope)
             all_vars = q_vars + t_vars
-            opts = [tf.train.AdamOptimizer() for _ in range(self.num_tasks)]
+            opts = [tf.train.AdamOptimizer(self.alpha, self.beta1, self.beta1) for _ in range(self.num_tasks)]
             self.all_gvs = [opts[i].compute_gradients(self.task_losses[i], all_vars) for i in range(self.num_tasks)]
             sep_gvs = [[a for a in zip(*gv_set)] for gv_set in self.all_gvs]
 
@@ -242,7 +245,7 @@ class InverseDynamicsLearner():
         assert(self.regime is not None)
 
         if dyn_pretrain_iters > 0:
-            temp_update = tf.train.AdamOptimizer().minimize(self.neg_avg_trans_log_likelihood)
+            temp_update = tf.train.AdamOptimizer(self.alpha, self.beta1, self.beta1).minimize(self.neg_avg_trans_log_likelihood)
 
         tf.global_variables_initializer().run(session=self.sess)
 
@@ -285,7 +288,7 @@ class InverseDynamicsLearner():
                 if i % self.validation_freq == 0:
                     val_loss = self.sess.run(self.neg_avg_trans_log_likelihood, feed_dict=val_feed)
 
-                if i % 100 == 0:
+                if i % 1000 == 0:
                     print("{}: {}".format(i, val_loss))
 
 
