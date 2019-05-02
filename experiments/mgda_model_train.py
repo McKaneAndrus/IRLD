@@ -48,7 +48,7 @@ def default_config():
 
     #Frank Wolfe Config
     batch_size = 200
-    n_training_iters = 1000
+    n_training_iters = 100000
     dyn_pretrain_iters = 0
 
 
@@ -57,7 +57,7 @@ def default_config():
     tab_save_freq = 50
 
 @ex.named_config
-def simple_map_config_no_mellow():
+def simple_map_config_no_mellow_pretrain():
     mdp_num = 0
 
     gamma = 0.99
@@ -91,14 +91,14 @@ def simple_map_config_no_mellow():
     #Frank Wolfe Config
     batch_size = 200
     n_training_iters = 500000
-    dyn_pretrain_iters = 5000
+    dyn_pretrain_iters = 20000
 
     loss_configurations = [[0,3],[1,4]]
 
     tab_save_freq = 50
 
 @ex.named_config
-def simple_map_config_mellow():
+def simple_map_config_mellow_pretrain():
     mdp_num = 0
 
     gamma = 0.99
@@ -137,7 +137,7 @@ def simple_map_config_mellow():
     #Frank Wolfe Config
     batch_size = 200
     n_training_iters = 500000
-    dyn_pretrain_iters = 5000
+    dyn_pretrain_iters = 20000
 
 
     loss_configurations = [[0,3],[1,4]]

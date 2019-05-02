@@ -241,6 +241,9 @@ class InverseDynamicsLearner():
 
         assert(self.regime is not None)
 
+        if dyn_pretrain_iters > 0:
+            temp_update = tf.train.AdamOptimizer().minimize(self.neg_avg_trans_log_likelihood)
+
         tf.global_variables_initializer().run(session=self.sess)
 
         # Tabular logging setup
@@ -274,17 +277,16 @@ class InverseDynamicsLearner():
 
         if dyn_pretrain_iters > 0:
             print("Pretraining the dynamics model with baseline method.")
-            temp_update = tf.train.AdamOptimizer().minimize(self.neg_avg_trans_log_likelihood)
             for i in range(dyn_pretrain_iters):
                 demo_batch = sample_batch(rollouts, train_idxes, batch_size)
                 feed_dict = self._get_feed_dict(demo_batch, constraints)
                 self.sess.run(temp_update, feed_dict=feed_dict)
 
                 if i % self.validation_freq == 0:
-                    val_loss = self.sess.run(self.neg_avg_trans_log_likelihood, feed_dict=val_feed)[0]
+                    val_loss = self.sess.run(self.neg_avg_trans_log_likelihood, feed_dict=val_feed)
 
                 if i % 100 == 0:
-                    print("{}: dyn loss {}".format(i, val_loss))
+                    print("{}: {}".format(i, val_loss))
 
 
         try:
@@ -333,7 +335,8 @@ class InverseDynamicsLearner():
                             _run.log_scalar(metric_name, loss, train_time)
 
                 if train_time % 100 == 0 and verbose:
-                    print([(k, full_train_logs["val_" + k][-1]) for k in self.log_loss_titles])
+                    print(str(train_time) + "   " + "   ".join([str(k) + ": " +
+                                                str(full_train_logs["val_" + k][-1]) for k in self.log_loss_titles]))
                     if self.regime == "MGDA":
                         print(sol)
 
