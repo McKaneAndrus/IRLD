@@ -54,6 +54,7 @@ def default_config():
     #Coordinate Config
     batch_size = 200
     n_training_iters = 500000
+    dyn_pretrain_iters = 0
     horizon = 1000
     slope_threshold = 1e-4
     switch_frequency = 500
@@ -64,11 +65,11 @@ def default_config():
     tab_save_freq = 50
 
 @ex.named_config
-def simple_map_config():
+def simple_map_config_mellow():
     mdp_num = 0
 
     gamma = 0.99
-    alpha = 1e-4
+    alpha = 5e-5
     beta1 = 0.9
     beta2 = 0.999999
 
@@ -88,7 +89,7 @@ def simple_map_config():
     # Boltz-beta determines the "rationality" of the agent being modeled.
     # Setting it to higher values corresponds to "pure rationality"
     boltz_beta = 50
-    mellowmax = False
+    mellowmax = True
 
 
 
@@ -102,12 +103,13 @@ def simple_map_config():
     #Coordinate Config
     batch_size = 200
     n_training_iters = 500000
+    dyn_pretrain_iters = 0
     horizon = 1000
-    slope_threshold = 1e-4
+    slope_threshold = 1e-5
     switch_frequency = 500
     # Config made up of ['nall', 'ntll', 'tde', 'tde_sg_q', 'tde_sg_t']
     initial_update = [1]
-    update_progression = [[4],[0,1,3]]
+    update_progression = [[4],[0,1,3],[1,2]]
 
     tab_save_freq = 50
 
@@ -116,7 +118,7 @@ def simple_map_config():
 @ex.automain
 def coordinate_train(_run, mdp_num, gamma, alpha, beta1, beta2, constraint_batch_size, q_n_layers, q_layer_size, q_activation,
             q_output_activation, dyn_n_layers, dyn_layer_size, dyn_activation, dyn_output_activation, boltz_beta, mellowmax,
-            gamma_demo, temp_boltz_beta, n_demos, demo_time_steps, n_training_iters, batch_size,
+            gamma_demo, temp_boltz_beta, n_demos, demo_time_steps, n_training_iters, dyn_pretrain_iters, batch_size,
             horizon, slope_threshold, switch_frequency, initial_update, update_progression, tab_save_freq):
 
     os_setup()
@@ -154,6 +156,6 @@ def coordinate_train(_run, mdp_num, gamma, alpha, beta1, beta2, constraint_batch
     out_dir = os.path.join("logs", "models", str(_run._id))
 
     model.train(n_training_iters, rollouts, train_idxes, batch_size, constraints, val_demo_batch, out_dir,
-                states, adt_samples, tab_save_freq,  _run, true_qs)
+                states, adt_samples, dyn_pretrain_iters, tab_save_freq,  _run, true_qs)
 
     return _run._id

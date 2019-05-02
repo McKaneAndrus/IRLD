@@ -204,17 +204,17 @@ class InverseDynamicsLearner():
             self.slope_threshold = regime_params["slope_threshold"]
             self.switch_frequency = regime_params["switch_frequency"]
             if regime_params["initial_update"] is not None:
-                self.curr_update = tf.train.AdamOptimizer(self.alpha, self.beta1, self.beta1).minimize(
-                        sum(self.loss_fns[regime_params["initial_update"]]))
+                self.curr_loss = sum(self.loss_fns[regime_params["initial_update"]])
+                self.curr_update = tf.train.AdamOptimizer(self.alpha, self.beta1, self.beta1).minimize(self.curr_loss)
                 self.curr_update_index = -1
             else:
                 self.curr_update_index = 0
 
             # Update progression is a list of list of ints in the range(len(self.loss_fns))
-            losses = [sum(self.loss_fns[config]) for config in regime_params["update_progression"]]
+            self.loss_progression = [sum(self.loss_fns[config]) for config in regime_params["update_progression"]]
             #TODO Check for equivalent losses
             self.update_progression = [tf.train.AdamOptimizer(self.alpha, self.beta1, self.beta1).minimize(
-                    loss, name="opt_{}".format(i)) for i,loss in enumerate(losses)]
+                    loss, name="opt_{}".format(i)) for i,loss in enumerate(self.loss_progression)]
 
 
         if regime == "MGDA":
@@ -300,11 +300,12 @@ class InverseDynamicsLearner():
                 feed_dict = self._get_feed_dict(demo_batch, constraints, true_qs=true_qs)
 
                 if self.regime == "weighted":
-                    loss_data = self.sess.run(list(self.log_losses) + [self.update], feed_dict=feed_dict)[:-1]
+                    # loss_data = self.sess.run(list(self.log_losses) + [self.update], feed_dict=feed_dict)[:-1]
+                    self.sess.run(self.update, feed_dict=feed_dict)
 
                 if self.regime == "coordinate":
-                    loss_data = self.sess.run(list(self.log_losses) + [self.curr_update], feed_dict=feed_dict)[:-1]
-                    total_loss.append(sum(loss_data))
+                    loss_data = self.sess.run([self.curr_loss, self.curr_update], feed_dict=feed_dict)[0]
+                    total_loss.append(loss_data)
 
                 if self.regime == "MGDA":
                     loss_and_gvs = self.sess.run(list(self.log_losses) + [self.all_gvs], feed_dict=feed_dict)
@@ -326,8 +327,8 @@ class InverseDynamicsLearner():
                     # Inefficient, takes gradients twice when we could just feed the gradients back in
                     self.sess.run(self.updates, feed_dict=feed_dict)
 
-                for i, loss in enumerate(loss_data):
-                    full_train_logs[self.log_loss_titles[i]] += [loss]
+                # for i, loss in enumerate(loss_data):
+                #     full_train_logs[self.log_loss_titles[i]] += [loss]
 
                 if train_time % self.validation_freq == 0:
                     val_loss_data = self.sess.run(list(self.log_losses), feed_dict=val_feed)
@@ -337,7 +338,7 @@ class InverseDynamicsLearner():
                         if _run is not None:
                             _run.log_scalar(metric_name, loss, train_time)
 
-                if train_time % 100 == 0 and verbose:
+                if train_time % 500 == 0 and verbose:
                     print(str(train_time) + "   " + "   ".join([str(k) + ": " +
                                                 str(full_train_logs["val_" + k][-1]) for k in self.log_loss_titles]))
                     if self.regime == "MGDA":
@@ -390,6 +391,8 @@ class InverseDynamicsLearner():
 
         if switch:
             self.curr_update_index = (self.curr_update_index + 1) % len(self.update_progression)
+            print("Switching to loss config {}".format(self.curr_update_index))
+            self.curr_loss = self.loss_progression[self.curr_update_index]
             self.curr_update = self.update_progression[self.curr_update_index]
 
         return switch

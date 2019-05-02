@@ -139,7 +139,7 @@ def simple_map_config_mellow_pretrain():
     n_training_iters = 500000
     dyn_pretrain_iters = 20000
 
-
+    # Config made up of ['nall', 'ntll', 'tde', 'tde_sg_q', 'tde_sg_t']
     loss_configurations = [[0,3],[1,4]]
 
     tab_save_freq = 50
