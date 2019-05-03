@@ -112,12 +112,12 @@ def simple_map_config_mellow():
     n_training_iters = 500000
     dyn_pretrain_iters = 0
     horizon = 5000
-    slope_threshold = 1e-6
+    slope_threshold = 1e-7
     switch_frequency = 500
     # Config made up of ['nall', 'ntll', 'tde', 'tde_sg_q', 'tde_sg_t']
     initial_update = [1]
-    update_progression = [[0,1,2],[3]]
-    model_save_weights = [1.0, 1.0, 0.5]
+    update_progression = [[0,1,2],[3],[4]]
+    model_save_weights = [1.0, 1.0, 1.0]
 
     tab_save_freq = 200
 

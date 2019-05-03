@@ -212,7 +212,7 @@ class InverseDynamicsLearner():
                 self.curr_update_index = -1
             else:
                 self.curr_update_index = 0
-            self.model_save_weights = np.array(regime_params["model_save_weights"])
+            self.model_save_loss = sum(self.log_losses * np.array(regime_params["model_save_weights"]))
             # Update progression is a list of list of ints in the range(len(self.loss_fns))
             self.loss_progression = [sum(self.loss_fns[config]) for config in regime_params["update_progression"]]
             #TODO Check for equivalent losses
@@ -266,6 +266,9 @@ class InverseDynamicsLearner():
         if dyn_source_path is not None:
             load_tf_vars(self.sess, self.dyn_scope, dyn_source_path)
 
+        q_f = os.path.join(out_dir, "q_fn")
+        dyn_f = os.path.join(out_dir, "dyn_fn")
+
         train_time = 0
         # Initialize train_logs to have an array for train and validation evaluations
         full_train_logs = {}
@@ -275,7 +278,7 @@ class InverseDynamicsLearner():
 
         if self.regime == "coordinate":
             total_loss = []
-            best_score = np.inf
+            best_model_score = np.inf
 
         if self.regime == "MGDA":
             full_train_logs["frank_wolfe"] = []
@@ -361,11 +364,38 @@ class InverseDynamicsLearner():
                 # Check for update_switching
                 if self.regime == "coordinate" and train_time % self.switch_frequency and self._update_switcher(total_loss):
                     total_loss = []
+                    model_score = self.sess.run(self.model_save_loss, feed_dict=val_feed)
+                    if model_score < best_model_score:
+                        print("Current model ({}) is better than previous best ({})".format(model_score, best_model_score))
+                        # Save as file
+                        q_vals = self.sess.run([self.test_qs_t], feed_dict={self.test_q_obs_t_feats_ph: q_states})[0]
+                        adt_logits = \
+                        self.sess.run([self.pred_obs], feed_dict={self.demo_tile_t_ph: adt_samples[:, 0][np.newaxis].T,
+                                                                  self.demo_act_t_ph: adt_samples[:, 1][np.newaxis].T})[
+                            0]
+                        adt_probs = softmax(adt_logits)
+                        adt_probs = adt_probs.reshape(self.mdp.tile_types, self.mdp.num_actions,
+                                                      self.mdp.num_directions)
+                        pkl.dump(q_vals, open(os.path.join(tab_model_out_dir, 'final_q_vals.pkl'), 'wb'))
+                        pkl.dump(adt_probs, open(os.path.join(tab_model_out_dir, 'final_adt_probs.pkl'), 'wb'))
+
+                        pkl.dump(self.mdp, open(os.path.join(out_dir, 'mdp.pkl'), 'wb'))
+
+                        save_tf_vars(self.sess, self.q_scope, q_f)
+                        save_tf_vars(self.sess, self.dyn_scope, dyn_f)
+                        best_model_score = model_score
+
 
 
         except KeyboardInterrupt:
             print("Experiment Interrupted at timestep {}".format(train_time))
             pass
+
+        if self.regime == "coordinate":
+            if best_model_score == np.inf:
+                save_tf_vars(self.sess, self.q_scope, q_f)
+                save_tf_vars(self.sess, self.dyn_scope, dyn_f)
+            return q_f, dyn_f if _run is None else q_f, dyn_f, full_train_logs
 
         # Save as file
         q_vals = self.sess.run([self.test_qs_t], feed_dict={self.test_q_obs_t_feats_ph: q_states})[0]
@@ -378,8 +408,6 @@ class InverseDynamicsLearner():
 
         pkl.dump(self.mdp, open(os.path.join(out_dir, 'mdp.pkl'), 'wb'))
 
-        q_f = os.path.join(out_dir, "q_fn")
-        dyn_f = os.path.join(out_dir, "dyn_fn")
         save_tf_vars(self.sess, self.q_scope, q_f)
         save_tf_vars(self.sess, self.dyn_scope, dyn_f)
         return q_f, dyn_f if _run is None else q_f, dyn_f, full_train_logs
