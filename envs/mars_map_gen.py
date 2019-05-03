@@ -67,8 +67,8 @@ def make_map(height, width, clustering_iterations = 0, seed=0):
             tile_map[index] = np.random.choice(exchange_chars, p=weights)
 
     tile_proportions = {tt: len(np.nonzero(tile_map == tt)[0]) / total for tt in TILE_TYPES}
-    print(tile_proportions)
-    print(tile_map)
+    #print(tile_proportions)
+    #print(tile_map)
     string_tile_map = ["".join(row) for row in tile_map]
     return string_tile_map
 

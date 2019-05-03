@@ -4,7 +4,8 @@ from utils.data_utils import initialize_scopes, load_scopes
 import os
 from utils.tf_utils import os_setup
 import tensorflow as tf
-from envs.environment_setup_utils import get_mdp
+from envs.environment_setup_utils import get_reward_map
+from envs.mars_map_gen import get_mdp_from_map
 from utils.demos_utils import get_demos
 from utils.experiment_utils import current_milli_time
 from utils.models import InverseDynamicsLearner
@@ -16,6 +17,7 @@ mgda_model_train_ex.observers.append(FileStorageObserver.create('logs/sacred'))
 @mgda_model_train_ex.config
 def default_config():
     mdp_num = 0
+    mdp_map = get_reward_map(mdp_num)
 
     gamma = 0.99
     alpha = 1e-4
@@ -59,6 +61,7 @@ def default_config():
 @mgda_model_train_ex.named_config
 def simple_map_config_no_mellow_pretrain():
     mdp_num = 0
+    mdp_map = get_reward_map(mdp_num)
 
     gamma = 0.99
     alpha = 1e-5
@@ -101,6 +104,7 @@ def simple_map_config_no_mellow_pretrain():
 def simple_map_config_mellow_pretrain():
     mdp_num = 0
 
+    mdp_map = get_reward_map(mdp_num)
     gamma = 0.99
     alpha = 1e-5
     beta1 = 0.9
@@ -145,17 +149,18 @@ def simple_map_config_mellow_pretrain():
     tab_save_freq = 50
 
 @mgda_model_train_ex.automain
-def mgda_train(_run, mdp_num, gamma, alpha, beta1, beta2, constraint_batch_size, q_n_layers, q_layer_size, q_activation,
+def mgda_train(_run, mdp_map, gamma, alpha, beta1, beta2, constraint_batch_size, q_n_layers, q_layer_size, q_activation,
             q_output_activation, dyn_n_layers, dyn_layer_size, dyn_activation, dyn_output_activation, boltz_beta, mellowmax,
             gamma_demo, temp_boltz_beta, n_demos, demo_time_steps, n_training_iters, dyn_pretrain_iters, batch_size,
             loss_configurations, tab_save_freq):
 
     os_setup()
+    tf.reset_default_graph()
     data_dir = os.path.join('data', '1.1')
     # q_scope, dyn_scope = load_scopes(data_dir)
     sess = tf.Session()
 
-    mdp = get_mdp(mdp_num)
+    mdp = get_mdp_from_map(mdp_map)
 
     mlp_params = {'q_n_layers':q_n_layers,
                   'q_layer_size':q_layer_size,
