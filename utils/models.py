@@ -11,7 +11,7 @@ import pickle as pkl
 class InverseDynamicsLearner():
 
     def __init__(self, mdp, sess, gamma=0.99, adt=True, mellowmax=False, boltz_beta=50, mlp_params=None,
-                    alpha=1e-4, beta1=0.9, beta2=0.999999, dyn_scope="Dynamics", q_scope="Qs"):
+                    alpha=1e-4, beta1=0.9, beta2=0.999999, seed=0, dyn_scope="Dynamics", q_scope="Qs"):
 
         mlp_params = {} if mlp_params is None else mlp_params
 
@@ -19,6 +19,9 @@ class InverseDynamicsLearner():
         self.alpha = alpha
         self.beta1 = beta1
         self.beta2 = beta2
+        self.seed = seed
+
+        tf.random.set_random_seed(seed)
 
         # TODO Make this retrievable by env observation space
         n_obs_feats = mdp.nrow + mdp.ncol
@@ -135,7 +138,7 @@ class InverseDynamicsLearner():
         constraint_q_tp1 = tf.reshape(cqtp1_misshaped, (self.constraint_batch_size_ph, n_dirs, n_act_dim))
 
         if mellowmax:
-            constraint_v_tp1 =  (tf.reduce_logsumexp(constraint_q_tp1 * boltz_beta, axis=2) - np.log(n_act_dim)) / boltz_beta
+            constraint_v_tp1 = (tf.reduce_logsumexp(constraint_q_tp1 * boltz_beta, axis=2) - np.log(n_act_dim)) / boltz_beta
         else:
             constraint_v_tp1 = tf.reduce_logsumexp(constraint_q_tp1, axis=2)
 
@@ -209,7 +212,7 @@ class InverseDynamicsLearner():
                 self.curr_update_index = -1
             else:
                 self.curr_update_index = 0
-
+            self.model_save_weights = np.array(regime_params["model_save_weights"])
             # Update progression is a list of list of ints in the range(len(self.loss_fns))
             self.loss_progression = [sum(self.loss_fns[config]) for config in regime_params["update_progression"]]
             #TODO Check for equivalent losses
@@ -272,6 +275,7 @@ class InverseDynamicsLearner():
 
         if self.regime == "coordinate":
             total_loss = []
+            best_score = np.inf
 
         if self.regime == "MGDA":
             full_train_logs["frank_wolfe"] = []

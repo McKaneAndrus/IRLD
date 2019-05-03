@@ -110,8 +110,11 @@ def simple_map_config_mellow():
     # Config made up of ['nall', 'ntll', 'tde', 'tde_sg_q', 'tde_sg_t']
     initial_update = [1]
     update_progression = [[1,4],[0,1,3],[0,2]]
+    model_save_weights = [1.0, 1.0, 0.5]
 
     tab_save_freq = 200
+
+    seed = 0
 
 
 
@@ -119,7 +122,7 @@ def simple_map_config_mellow():
 def coordinate_train(_run, mdp_num, gamma, alpha, beta1, beta2, constraint_batch_size, q_n_layers, q_layer_size, q_activation,
             q_output_activation, dyn_n_layers, dyn_layer_size, dyn_activation, dyn_output_activation, boltz_beta, mellowmax,
             gamma_demo, temp_boltz_beta, n_demos, demo_time_steps, n_training_iters, dyn_pretrain_iters, batch_size,
-            horizon, slope_threshold, switch_frequency, initial_update, update_progression, tab_save_freq):
+            horizon, slope_threshold, switch_frequency, initial_update, update_progression, model_save_weights, tab_save_freq, seed):
 
     os_setup()
     data_dir = os.path.join('data', '1.1')
@@ -138,20 +141,22 @@ def coordinate_train(_run, mdp_num, gamma, alpha, beta1, beta2, constraint_batch
                   'dyn_output_activation':dyn_output_activation}
 
     model = InverseDynamicsLearner(mdp, sess, mlp_params=mlp_params, boltz_beta=boltz_beta, gamma=gamma,
-                                   mellowmax=mellowmax, alpha=alpha, beta1=beta1, beta2=beta2) #, q_scope=q_scope, dyn_scope=dyn_scope)
+                                   mellowmax=mellowmax, alpha=alpha, beta1=beta1, beta2=beta2, seed=seed) #, q_scope=q_scope, dyn_scope=dyn_scope)
 
     regime_params = {"horizon": horizon,
                      'slope_threshold':slope_threshold,
                      'switch_frequency': switch_frequency,
                      'initial_update': initial_update,
-                     'update_progression':update_progression}
+                     'update_progression':update_progression,
+                     'model_save_weights': model_save_weights}
 
     model.initialize_training_regime("coordinate", regime_params=regime_params)
 
     constraints, rollouts, train_idxes, val_demo_batch, true_qs, states, adt_samples = get_demos(mdp, gamma_demo,
                                                                                                     temp_boltz_beta,
                                                                                                     n_demos,
-                                                                                                    demo_time_steps)
+                                                                                                    demo_time_steps,
+                                                                                                    seed)
 
     out_dir = os.path.join("logs", "models", str(_run._id))
 

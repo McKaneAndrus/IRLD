@@ -1,6 +1,7 @@
 import numpy as np
 from utils.learning_utils import nn_vectorize_rollouts, generate_constraints, get_rollout_indexes, sample_batch, featurize_states
 from utils.soft_q_learning import tabsoftq_gen_pol, tabsoftq_learn_Qs, vectorize_rollouts, generate_demonstrations
+import random
 
 
 def clean_demos(sas_obs, max_noops=15):
@@ -20,7 +21,9 @@ def clean_demos(sas_obs, max_noops=15):
     return demo_example_idxes
 
 
-def get_demos(mdp, gamma, temp_boltz_beta, n_demos, demo_time_steps):
+def get_demos(mdp, gamma, temp_boltz_beta, n_demos, demo_time_steps, seed=0):
+    np.random.seed(seed)
+    random.seed(seed)
     exQs = tabsoftq_learn_Qs(mdp, gamma=gamma)
     # The rationality constant used to generate demos could certainly vary from the one used in the model.....
     # Ensure bad areas have not been visited in exes (this is unique to this experiment)

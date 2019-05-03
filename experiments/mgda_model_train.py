@@ -143,12 +143,13 @@ def simple_map_config_mellow_pretrain():
     loss_configurations = [[0,3],[1,4]]
 
     tab_save_freq = 50
+    seed = 0
 
 @mgda_model_train_ex.automain
 def mgda_train(_run, mdp_num, gamma, alpha, beta1, beta2, constraint_batch_size, q_n_layers, q_layer_size, q_activation,
             q_output_activation, dyn_n_layers, dyn_layer_size, dyn_activation, dyn_output_activation, boltz_beta, mellowmax,
             gamma_demo, temp_boltz_beta, n_demos, demo_time_steps, n_training_iters, dyn_pretrain_iters, batch_size,
-            loss_configurations, tab_save_freq):
+            loss_configurations, tab_save_freq, seed):
 
     os_setup()
     data_dir = os.path.join('data', '1.1')
@@ -166,8 +167,8 @@ def mgda_train(_run, mdp_num, gamma, alpha, beta1, beta2, constraint_batch_size,
                   'dyn_activation':dyn_activation,
                   'dyn_output_activation':dyn_output_activation}
 
-    model = InverseDynamicsLearner(mdp, sess, mlp_params=mlp_params, boltz_beta=boltz_beta,
-                                   gamma=gamma, mellowmax=mellowmax, alpha=alpha, beta1=beta1, beta2=beta2) #, q_scope=q_scope, dyn_scope=dyn_scope)
+    model = InverseDynamicsLearner(mdp, sess, mlp_params=mlp_params, boltz_beta=boltz_beta, gamma=gamma,
+                                mellowmax=mellowmax, alpha=alpha, beta1=beta1, beta2=beta2, seed=seed) #, q_scope=q_scope, dyn_scope=dyn_scope)
 
     regime_params = {'loss_configurations':loss_configurations}
     model.initialize_training_regime("MGDA", regime_params=regime_params)
