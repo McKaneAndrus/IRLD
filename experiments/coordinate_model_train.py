@@ -18,13 +18,10 @@ coordinate_model_train_ex.observers.append(FileStorageObserver.create('logs/sacr
 def default_config():
 
     mdp_num = 0
-
     mdp_map = get_tile_map(mdp_num)
 
-
     gamma = 0.99
-    # TODO decide what to do with these learning params
-    alpha = 1e-4
+    alpha = 5e-5
     beta1 = 0.9
     beta2 = 0.999999
 
@@ -47,8 +44,6 @@ def default_config():
     mellowmax = False
 
 
-
-
     #DEMO Config
     gamma_demo = 0.99
     n_demos = 200
@@ -60,14 +55,16 @@ def default_config():
     batch_size = 200
     n_training_iters = 500000
     dyn_pretrain_iters = 0
-    horizon = 1000
-    slope_threshold = 1e-4
+    horizon = 5000
+    slope_threshold = 1e-7
     switch_frequency = 500
     # Config made up of ['nall', 'ntll', 'tde', 'tde_sg_q', 'tde_sg_t']
     initial_update = [1]
-    update_progression = [[4], [0, 1, 3]]
+    update_progression = [[0,1,2],[4],[3]]
+    model_save_weights = [1.0, 1.0, 1.0]
 
-    tab_save_freq = 50
+    tab_save_freq = 200
+
     seed = 0
     gpu_num = 0
 
@@ -116,13 +113,15 @@ def simple_map_config_mellow():
     switch_frequency = 500
     # Config made up of ['nall', 'ntll', 'tde', 'tde_sg_q', 'tde_sg_t']
     initial_update = [1]
-    update_progression = [[0,1,2],[3],[4]]
+    update_progression = [[0,1,2],[4],[3]]
     model_save_weights = [1.0, 1.0, 1.0]
 
     tab_save_freq = 200
 
     seed = 0
     gpu_num = 0
+
+
 
 
 

@@ -346,8 +346,8 @@ class InverseDynamicsLearner():
                             _run.log_scalar(metric_name, loss, train_time)
 
                 if train_time % 500 == 0 and verbose:
-                    print(str(train_time) + "   " + "   ".join([str(k) + ": " +
-                                                str(full_train_logs["val_" + k][-1]) for k in self.log_loss_titles]))
+                    print(str(train_time) + "\t" + "\t".join([str(k) + ": " +
+                                                str(round(full_train_logs["val_" + k][-1],7)) for k in self.log_loss_titles]))
                     if self.regime == "MGDA":
                         print(sol)
 
