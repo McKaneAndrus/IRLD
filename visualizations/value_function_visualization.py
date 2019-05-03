@@ -57,7 +57,7 @@ def visualize_value_function(q_val_list, mdp, q_val_labels, show_art, out_file):
         sub_ax.set_xticklabels([])
         sub_ax.set_yticklabels([])
 
-        plt.title('Art')
+        plt.title('Art', fontsize=30, weight='bold')
 
         art_map = np.zeros([num_rows, num_cols, 3])
         max_reward = np.max(mdp.reward_map)
@@ -86,7 +86,7 @@ def visualize_value_function(q_val_list, mdp, q_val_labels, show_art, out_file):
         sub_ax.set_yticklabels([])
 
         label = q_val_labels[i]
-        plt.title(label)
+        plt.title(label, fontsize=30, weight='bold')
 
         q_val = q_val.reshape([num_rows, num_cols, num_actions])
         max_val = np.max(q_val, axis=2)
