@@ -25,8 +25,21 @@ tile_map2 = [
         "1FFFFFFF2"
     ]
 
+tile_map3 = [
+        "FFFFUFFFF",
+        "FFFFFFFFF",
+        "FUUFFFFFF",
+        "FFFFFFFFF",
+        "FFFFFFUFF",
+        "FFFFFFUFF",
+        "FFFkFFFFF",
+        "FFFFFFFFF",
+        "SFFFFFFF3",
+]
+
 TILE_MAPS = {0: tile_map,
-             1: tile_map2}
+             1: tile_map2,
+             2: tile_map3}
 
 tile_rewards = {'F':0.05,
               '1':0.1,
