@@ -13,9 +13,9 @@ def load_tf_vars(sess, scope, path):
     saver.restore(sess, path)
 
 
-def os_setup():
+def os_setup(gpu_num=2):
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-    os.environ["CUDA_VISIBLE_DEVICES"] = "2"
+    os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu_num)
 
 def build_mlp(
     input_placeholder,

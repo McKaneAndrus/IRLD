@@ -21,7 +21,7 @@ class InverseDynamicsLearner():
         self.beta2 = beta2
         self.seed = seed
 
-        tf.random.set_random_seed(seed)
+        tf.set_random_seed(seed)
 
         # TODO Make this retrievable by env observation space
         n_obs_feats = mdp.nrow + mdp.ncol

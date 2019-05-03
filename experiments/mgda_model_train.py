@@ -57,6 +57,8 @@ def default_config():
     loss_configurations = [[0,3],[1,4]]
 
     tab_save_freq = 50
+    seed = 0
+    gpu_num = 0
 
 @mgda_model_train_ex.named_config
 def simple_map_config_no_mellow_pretrain():
@@ -99,6 +101,8 @@ def simple_map_config_no_mellow_pretrain():
     loss_configurations = [[0,3],[1,4]]
 
     tab_save_freq = 50
+    seed = 0
+    gpu_num = 0
 
 @mgda_model_train_ex.named_config
 def simple_map_config_mellow_pretrain():
@@ -148,14 +152,15 @@ def simple_map_config_mellow_pretrain():
 
     tab_save_freq = 50
     seed = 0
+    gpu_num = 0
 
 @mgda_model_train_ex.automain
 def mgda_train(_run, mdp_map, gamma, alpha, beta1, beta2, constraint_batch_size, q_n_layers, q_layer_size, q_activation,
             q_output_activation, dyn_n_layers, dyn_layer_size, dyn_activation, dyn_output_activation, boltz_beta, mellowmax,
             gamma_demo, temp_boltz_beta, n_demos, demo_time_steps, n_training_iters, dyn_pretrain_iters, batch_size,
-            loss_configurations, tab_save_freq, seed):
+            loss_configurations, tab_save_freq, seed, gpu_num):
 
-    os_setup()
+    os_setup(gpu_num)
     tf.reset_default_graph()
     data_dir = os.path.join('data', '1.1')
     # q_scope, dyn_scope = load_scopes(data_dir)
@@ -181,7 +186,8 @@ def mgda_train(_run, mdp_map, gamma, alpha, beta1, beta2, constraint_batch_size,
     constraints, rollouts, train_idxes, val_demo_batch, true_qs, states, adt_samples = get_demos(mdp, gamma_demo,
                                                                                                     temp_boltz_beta,
                                                                                                     n_demos,
-                                                                                                    demo_time_steps)
+                                                                                                    demo_time_steps,
+                                                                                                    seed)
 
     out_dir = os.path.join("logs", "models", str(_run._id))
 

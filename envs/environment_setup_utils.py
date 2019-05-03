@@ -75,9 +75,8 @@ def build_reward_map(tile_map, tile_rewards, goal_tile_rewards, tile_reward_modi
     return reward_map, texture_map
 
 
-def get_reward_map(tile_map_index):
-    return build_reward_map(TILE_MAPS[tile_map_index], tile_rewards,
-                     goal_tile_rewards, tile_reward_modifier)
+def get_tile_map(tile_map_index):
+    return TILE_MAPS[tile_map_index]
 
 
 def get_mdp(tile_map_index):

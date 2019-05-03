@@ -4,7 +4,7 @@ from utils.data_utils import initialize_scopes, load_scopes
 import os
 from utils.tf_utils import os_setup
 import tensorflow as tf
-from envs.environment_setup_utils import get_mdp, get_reward_map
+from envs.environment_setup_utils import get_mdp, get_tile_map
 from utils.demos_utils import get_demos
 from utils.experiment_utils import current_milli_time
 from utils.models import InverseDynamicsLearner
@@ -19,7 +19,7 @@ def default_config():
 
     mdp_num = 0
 
-    mdp_map = get_reward_map(mdp_num)
+    mdp_map = get_tile_map(mdp_num)
 
 
     gamma = 0.99
@@ -68,11 +68,13 @@ def default_config():
     update_progression = [[4], [0, 1, 3]]
 
     tab_save_freq = 50
+    seed = 0
+    gpu_num = 0
 
 @coordinate_model_train_ex.named_config
 def simple_map_config_mellow():
     mdp_num = 0
-    mdp_map = get_reward_map(mdp_num)
+    mdp_map = get_tile_map(mdp_num)
 
     gamma = 0.99
     alpha = 5e-5
@@ -114,12 +116,13 @@ def simple_map_config_mellow():
     switch_frequency = 500
     # Config made up of ['nall', 'ntll', 'tde', 'tde_sg_q', 'tde_sg_t']
     initial_update = [1]
-    update_progression = [[1,4],[0,1,3],[0,2]]
+    update_progression = [[0,1,2],[3]]
     model_save_weights = [1.0, 1.0, 0.5]
 
     tab_save_freq = 200
 
     seed = 0
+    gpu_num = 0
 
 
 
@@ -127,9 +130,10 @@ def simple_map_config_mellow():
 def coordinate_train(_run, mdp_map, gamma, alpha, beta1, beta2, constraint_batch_size, q_n_layers, q_layer_size, q_activation,
             q_output_activation, dyn_n_layers, dyn_layer_size, dyn_activation, dyn_output_activation, boltz_beta, mellowmax,
             gamma_demo, temp_boltz_beta, n_demos, demo_time_steps, n_training_iters, dyn_pretrain_iters, batch_size,
-            horizon, slope_threshold, switch_frequency, initial_update, update_progression, model_save_weights, tab_save_freq, seed):
+            horizon, slope_threshold, switch_frequency, initial_update, update_progression, model_save_weights, tab_save_freq,
+            gpu_num, seed):
 
-    os_setup()
+    os_setup(gpu_num)
     tf.reset_default_graph()
     data_dir = os.path.join('data', '1.1')
     # q_scope, dyn_scope = load_scopes(data_dir)
