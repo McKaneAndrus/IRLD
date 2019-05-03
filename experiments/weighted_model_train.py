@@ -10,11 +10,11 @@ from utils.experiment_utils import current_milli_time
 from utils.models import InverseDynamicsLearner
 from envs.mars_map_gen import make_map, get_mdp_from_map
 
-coordinate_model_train_ex = Experiment("coordinate_model_train")
-coordinate_model_train_ex.observers.append(FileStorageObserver.create('logs/sacred'))
+weighted_model_train_ex = Experiment("weighted_model_train")
+weighted_model_train_ex.observers.append(FileStorageObserver.create('logs/sacred'))
 
 
-@coordinate_model_train_ex.config
+@weighted_model_train_ex.config
 def default_config():
 
     mdp_num = 0
@@ -51,30 +51,26 @@ def default_config():
     temp_boltz_beta = 50
 
 
-    #Coordinate Config
+    #weighted Config
     batch_size = 200
-    n_training_iters = 500000
-    dyn_pretrain_iters = 0
-    horizon = 5000
-    slope_threshold = 1e-7
-    switch_frequency = 500
+    n_training_iters = 200000
+    dyn_pretrain_iters = 50000
     # Config made up of ['nall', 'ntll', 'tde', 'tde_sg_q', 'tde_sg_t']
-    initial_update = [1]
-    update_progression = [[0,1,2],[4],[3]]
-    model_save_weights = [1.0, 1.0, 1.0]
+    losses = [0,1,3,4]
+    loss_weights = [1.0, 2.0, 0.1, 2.0]
 
-    tab_save_freq = 200
+    tab_save_freq = 500
 
     seed = 0
     gpu_num = 0
 
-@coordinate_model_train_ex.named_config
+@weighted_model_train_ex.named_config
 def simple_map_config_mellow():
     mdp_num = 0
     mdp_map = get_tile_map(mdp_num)
 
     gamma = 0.99
-    alpha = 5e-5
+    alpha = 1e-4
     beta1 = 0.9
     beta2 = 0.999999
 
@@ -104,33 +100,26 @@ def simple_map_config_mellow():
     temp_boltz_beta = 50
 
 
-    #Coordinate Config
+    #weighted Config
     batch_size = 200
-    n_training_iters = 500000
-    dyn_pretrain_iters = 0
-    horizon = 5000
-    slope_threshold = 1e-6
-    switch_frequency = 500
+    n_training_iters = 200000
+    dyn_pretrain_iters = 5000
     # Config made up of ['nall', 'ntll', 'tde', 'tde_sg_q', 'tde_sg_t']
-    initial_update = [1]
-    update_progression = [[0,1,2],[4],[3]]
-    model_save_weights = [1.0, 1.0, 1.0]
+    losses = [0,1,3,4]
+    loss_weights = [1.0, 5.0, 0.1, 2.0]
 
-    tab_save_freq = 200
+    tab_save_freq = 500
 
     seed = 0
     gpu_num = 0
 
 
 
-
-
-@coordinate_model_train_ex.automain
-def coordinate_train(_run, mdp_map, gamma, alpha, beta1, beta2, constraint_batch_size, q_n_layers, q_layer_size, q_activation,
+@weighted_model_train_ex.automain
+def weighted_train(_run, mdp_map, gamma, alpha, beta1, beta2, constraint_batch_size, q_n_layers, q_layer_size, q_activation,
             q_output_activation, dyn_n_layers, dyn_layer_size, dyn_activation, dyn_output_activation, boltz_beta, mellowmax,
             gamma_demo, temp_boltz_beta, n_demos, demo_time_steps, n_training_iters, dyn_pretrain_iters, batch_size,
-            horizon, slope_threshold, switch_frequency, initial_update, update_progression, model_save_weights, tab_save_freq,
-            gpu_num, seed):
+            losses, loss_weights, tab_save_freq, gpu_num, seed):
 
     os_setup(gpu_num)
     tf.reset_default_graph()
@@ -140,7 +129,6 @@ def coordinate_train(_run, mdp_map, gamma, alpha, beta1, beta2, constraint_batch
 
 
     mdp = get_mdp_from_map(mdp_map)
-
 
 
     mlp_params = {'q_n_layers':q_n_layers,
@@ -156,14 +144,10 @@ def coordinate_train(_run, mdp_map, gamma, alpha, beta1, beta2, constraint_batch
         model = InverseDynamicsLearner(mdp, sess, mlp_params=mlp_params, boltz_beta=boltz_beta, gamma=gamma,
                                     mellowmax=mellowmax, alpha=alpha, beta1=beta1, beta2=beta2, seed=seed) #, q_scope=q_scope, dyn_scope=dyn_scope)
 
-        regime_params = {"horizon": horizon,
-                         'slope_threshold':slope_threshold,
-                         'switch_frequency': switch_frequency,
-                         'initial_update': initial_update,
-                         'update_progression':update_progression,
-                         'model_save_weights': model_save_weights}
+        regime_params = {"losses": losses,
+                         'loss_weights':loss_weights}
 
-        model.initialize_training_regime("coordinate", regime_params=regime_params)
+        model.initialize_training_regime("weighted", regime_params=regime_params)
 
         constraints, rollouts, train_idxes, val_demo_batch, true_qs, states, adt_samples = get_demos(mdp, gamma_demo,
                                                                                                         temp_boltz_beta,

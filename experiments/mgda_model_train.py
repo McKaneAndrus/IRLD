@@ -27,8 +27,8 @@ def default_config():
     constraint_batch_size = None
 
     q_n_layers = 2
-    q_layer_size = 2048
-    q_activation = tf.nn.tanh
+    q_layer_size = 512
+    q_activation = tf.nn.relu
     q_output_activation = None
 
     dyn_n_layers = 1
@@ -73,8 +73,8 @@ def simple_map_config_no_mellow_pretrain():
     constraint_batch_size = None
 
     q_n_layers = 2
-    q_layer_size = 2048
-    q_activation = tf.nn.tanh
+    q_layer_size = 512
+    q_activation = tf.nn.relu
     q_output_activation = None
 
     dyn_n_layers = 1
@@ -117,8 +117,8 @@ def simple_map_config_mellow_pretrain():
     constraint_batch_size = None
 
     q_n_layers = 2
-    q_layer_size = 2048
-    q_activation = tf.nn.tanh
+    q_layer_size = 512
+    q_activation = tf.nn.relu
     q_output_activation = None
 
     dyn_n_layers = 1

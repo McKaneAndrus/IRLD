@@ -107,6 +107,8 @@ def config():
 
 def load_dynamics(experiment_nums):
     data = [pkl.load(open(os.path.join("logs", "models", str(experiment_num), "tab", "final_adt_probs.pkl"), "rb")) for experiment_num in experiment_nums]
+    true_data = pkl.load(open(os.path.join("logs", "models", str(experiment_nums[0]), "tab", "true_adt_probs.pkl"), "rb"))
+    data.insert(0, true_data)
     return np.array(data)
 
 
@@ -116,7 +118,7 @@ def main(out_dir, _run, experiment_nums, alg_labels, tile_labels, fig_width, mar
         os.makedirs(out_dir)
 
     if len(experiment_nums) != len(alg_labels):
-        raise Exception("Was given {} experiements and {} alg labels, these must match".format(len(experiment_nums),
+        raise Exception("Was given {} experiments and {} alg labels, these must match".format(len(experiment_nums),
                                                                                                len(alg_labels)))
 
     data = load_dynamics(experiment_nums)
