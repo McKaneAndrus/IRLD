@@ -104,9 +104,9 @@ def config():
     del _
 
 
-def load_dynamics(experiment_nums):
-    data = [pkl.load(open(os.path.join("logs", "models", str(experiment_num), "adt_probs.pkl"), "rb")) for experiment_num in experiment_nums]
 
+def load_dynamics(experiment_nums):
+    data = [pkl.load(open(os.path.join("logs", "models", str(experiment_num), "tab", "final_adt_probs.pkl"), "rb")) for experiment_num in experiment_nums]
     return np.array(data)
 
 
