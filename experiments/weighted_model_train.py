@@ -21,7 +21,7 @@ def default_config():
     mdp_map = get_tile_map(mdp_num)
 
     gamma = 0.99
-    alpha = 1e-4
+    alpha = 5e-4
     beta1 = 0.9
     beta2 = 0.999999
 
@@ -57,7 +57,7 @@ def default_config():
     dyn_pretrain_iters = 50000
     # Config made up of ['nall', 'ntll', 'tde', 'tde_sg_q', 'tde_sg_t']
     losses = [0,1,3,4]
-    loss_weights = [1.0, 2.0, 0.1, 2.0]
+    loss_weights = [1.0, 2.0, 1.0, 2.0]
 
     tab_save_freq = 500
 

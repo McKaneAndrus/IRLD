@@ -4,7 +4,7 @@ from utils.data_utils import initialize_scopes, load_scopes
 import os
 from utils.tf_utils import os_setup
 import tensorflow as tf
-from envs.environment_setup_utils import get_reward_map
+from envs.environment_setup_utils import get_tile_map
 from envs.mars_map_gen import get_mdp_from_map
 from utils.demos_utils import get_demos
 from utils.experiment_utils import current_milli_time
@@ -17,7 +17,7 @@ mgda_model_train_ex.observers.append(FileStorageObserver.create('logs/sacred'))
 @mgda_model_train_ex.config
 def default_config():
     mdp_num = 0
-    mdp_map = get_reward_map(mdp_num)
+    mdp_map = get_tile_map(mdp_num)
 
     gamma = 0.99
     alpha = 1e-4
@@ -50,7 +50,7 @@ def default_config():
 
     #Frank Wolfe Config
     batch_size = 200
-    n_training_iters = 100000
+    n_training_iters = 150000
     dyn_pretrain_iters = 0
 
 
@@ -63,7 +63,7 @@ def default_config():
 @mgda_model_train_ex.named_config
 def simple_map_config_no_mellow_pretrain():
     mdp_num = 0
-    mdp_map = get_reward_map(mdp_num)
+    mdp_map = get_tile_map(mdp_num)
 
     gamma = 0.99
     alpha = 1e-5
@@ -108,7 +108,7 @@ def simple_map_config_no_mellow_pretrain():
 def simple_map_config_mellow_pretrain():
     mdp_num = 0
 
-    mdp_map = get_reward_map(mdp_num)
+    mdp_map = get_tile_map(mdp_num)
     gamma = 0.99
     alpha = 1e-5
     beta1 = 0.9

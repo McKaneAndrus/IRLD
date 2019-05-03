@@ -140,7 +140,8 @@ class InverseDynamicsLearner():
         if mellowmax:
             constraint_v_tp1 = (tf.reduce_logsumexp(constraint_q_tp1 * boltz_beta, axis=2) - np.log(n_act_dim)) / boltz_beta
         else:
-            constraint_v_tp1 = tf.reduce_logsumexp(constraint_q_tp1, axis=2)
+            constraint_v_tp1 = tf.reduce_logsumexp(constraint_q_tp1 * boltz_beta, axis=2) / boltz_beta
+            # constraint_v_tp1 = tf.reduce_logsumexp(constraint_q_tp1, axis=2)
 
         # bellman residual penalty error
         constraint_pred_probs = tf.nn.softmax(constraint_pred_obs, axis=1)
