@@ -64,7 +64,7 @@ def visualize_dynamics(data, alg_labels, tile_labels, out_file='tmp.png', fig_wi
         top_row_i = num_rows - 1 - (tile_i * (1 + num_algs))
 
         # Plot the first row, the title and column labels.
-        plt.text(0, top_row_i + margin, tile, size=50, ha='left', va='bottom')
+        plt.text(1 - margin, top_row_i + margin, tile, fontdict={'weight': 'bold'}, size=50, ha='right', va='bottom')
         for act_i, act in enumerate(['left', 'down', 'right', 'up', 'stay']):
             plt.text(act_i + 1.5, top_row_i + margin, act, size=30, ha='center', va='bottom')
 
@@ -96,8 +96,8 @@ def visualize_dynamics(data, alg_labels, tile_labels, out_file='tmp.png', fig_wi
 def config():
     fig_width = 8
     margin = .1
-    alg_labels = "a"
-    tile_labels = "a,b"
+    alg_labels = "Experiment"
+    tile_labels = "0,1"
     out_dir = "logs/generated_images_"
 
     _ = locals()  # quieten flake8 unused variable warning
@@ -107,22 +107,21 @@ def config():
 
 def load_dynamics(experiment_nums, alg_labels):
     data = [pkl.load(open(os.path.join("logs", "models", str(experiment_nums[0]), "tab", "true_adt_probs.pkl"), "rb"))]
-    alg_labels.insert(0, 'True')
+    alg_labels.insert(0, 'Ground Truth')
     data.extend([pkl.load(open(os.path.join("logs", "models", str(experiment_num), "tab", "final_adt_probs.pkl"), "rb")) for experiment_num in experiment_nums])
     return np.array(data)
 
 
 @dynamics_visualization.automain
 def main(out_dir, _run, experiment_nums, alg_labels, tile_labels, fig_width, margin):
-    alg_labels = alg_labels.split(",")
-    tile_labels = tile_labels.split(",")
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 
+    alg_labels = alg_labels.split(",")
+    tile_labels = tile_labels.split(",")
     if len(experiment_nums) != len(alg_labels):
         raise Exception("Was given {} experiments and {} alg labels, these must match".format(len(experiment_nums),
                                                                                                len(alg_labels)))
-
     data = load_dynamics(experiment_nums, alg_labels)
 
     if len(data[0]) != len(tile_labels):

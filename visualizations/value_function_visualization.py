@@ -23,7 +23,7 @@ MAP_COLORS = {b'F': "#ffffff", # Normal Square
               b'3': "reward"} # Reward Square
 
 
-def visualize_value_function(q_val_list, mdp, q_val_labels, out_file):
+def visualize_value_function(q_val_list, mdp, q_val_labels, show_art, out_file):
     """This creates a grid of grid-world layouts representing the Q-values.
 
     Args:
@@ -38,18 +38,20 @@ def visualize_value_function(q_val_list, mdp, q_val_labels, out_file):
     num_actions = mdp.num_actions
     num_plots = len(q_val_list)
 
-    plt_num_rows = (num_rows + 1) * len(q_val_list) // 2
+    if show_art:
+        num_plots += 1
+
+    plt_num_rows = int(np.ceil((num_rows + 1) * num_plots / 2))
     plt_num_cols = (num_cols + 1) * 2
     fig = plt.figure(figsize=(plt_num_cols, plt_num_rows))
     ax = plt.gca()
     ax.set_axis_off()
 
     i_offset = 0
-    if len(q_val_list) > 2:
+    if show_art:
         i_offset = 1
-        num_plots += 1
 
-        sub_ax = fig.add_subplot(num_plots // 2, 2, 1)
+        sub_ax = fig.add_subplot(int(np.ceil(num_plots / 2)), 2, 1)
         sub_ax.set_xticks(np.arange(num_rows) - .5)
         sub_ax.set_yticks(np.arange(num_cols) - .5)
         sub_ax.set_xticklabels([])
@@ -77,7 +79,7 @@ def visualize_value_function(q_val_list, mdp, q_val_labels, out_file):
         y_offset = ((i + i_offset) // 2) * (num_rows + 1)
 
 
-        sub_ax = fig.add_subplot(num_plots // 2, 2, i + i_offset + 1)
+        sub_ax = fig.add_subplot(int(np.ceil(num_plots / 2)), 2, i + i_offset + 1)
         sub_ax.set_xticks(np.arange(num_rows) - .5)
         sub_ax.set_yticks(np.arange(num_cols) - .5)
         sub_ax.set_xticklabels([])
@@ -118,23 +120,33 @@ def visualize_value_function(q_val_list, mdp, q_val_labels, out_file):
 @value_function_visualization.config
 def config():
     out_dir = "logs/generated_images_"
+    labels = "Experiment"
+    show_art = None
 
     _ = locals()  # quieten flake8 unused variable warning
     del _
 
 
-def load_single_exp_data(experiment_num):
-    learned_vals = pkl.load(open(os.path.join("logs", "models", str(experiment_num), "tab", "final_q_vals.pkl"), "rb"))
-    true_vals = pkl.load(open(os.path.join("logs", "models", str(experiment_num), "tab", "true_q_vals.pkl"), "rb"))
-    mdp = pkl.load(open(os.path.join("logs", "models", str(experiment_num), "mdp.pkl"), "rb"))
-    return (learned_vals, true_vals), mdp, ("learned", "true")
+def load_single_exp_data(experiment_nums, labels):
+    data = [pkl.load(open(os.path.join("logs", "models", str(experiment_nums[0]), "tab", "true_q_vals.pkl"), "rb"))]
+    labels.insert(0, 'Ground Truth')
+    data.extend([pkl.load(open(os.path.join("logs", "models", str(experiment_num), "tab", "final_q_vals.pkl"), "rb")) for experiment_num in experiment_nums])
+    mdp = pkl.load(open(os.path.join("logs", "models", str(experiment_nums[0]), "mdp.pkl"), "rb"))
+    return np.array(data), mdp
 
 
 @value_function_visualization.automain
-def main(out_dir, _run, experiment_num):
+def main(out_dir, _run, experiment_nums, labels, show_art):
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 
-    q_val_list, mdp, labels = load_single_exp_data(experiment_num)
-    out_file = os.path.join(out_dir, "value_function_visualization_{}_from_{}.png".format(_run._id,  experiment_num))
-    visualize_value_function(q_val_list, mdp, labels, out_file)
+    labels = labels.split(",")
+    if len(experiment_nums) != len(labels):
+        raise Exception("Was given {} experiments and {} labels, these must match".format(len(experiment_nums),
+                                                                                          len(labels)))
+    if show_art is None:
+        show_art = len(labels) > 2
+
+    q_val_list, mdp = load_single_exp_data(experiment_nums, labels)
+    out_file = os.path.join(out_dir, "value_function_visualization_{}_from_{}.png".format(_run._id,  experiment_nums))
+    visualize_value_function(q_val_list, mdp, labels, show_art, out_file)
