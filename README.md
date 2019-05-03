@@ -18,7 +18,7 @@ To install the needed dependencies use:
  To run visualizations use commands like:
  
  ```
- pythonw -m visualizations.dynamics_visualization with experiment_nums=[2,3]
+ pythonw -m visualizations.dynamics_visualization with experiment_nums=[2,3] algo_labels=algo_1,algo_2
  pythonw -m visualizations.value_function_visualization with experiment_num=2
  pythonw -m visualizations.loss_visualization with experiment_num=2
  ```
