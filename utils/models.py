@@ -203,7 +203,7 @@ class InverseDynamicsLearner():
             self.weighted_loss = sum([self.loss_fns[losses[i]] * loss_weights[i] for i in range(len(losses))])
             self.log_losses = np.append(self.log_losses, [self.weighted_loss])
             self.log_loss_titles = np.append(self.log_loss_titles, ["weighted_loss"])
-            self.update = tf.train.AdamOptimizer(self.alpha, self.beta1, self.beta1).minimize(self.weighted_loss)
+            self.update = tf.train.AdamOptimizer(self.alpha, self.beta1, self.beta2).minimize(self.weighted_loss)
 
         if regime == "coordinate":
             # Coordinate descent training regime
@@ -211,16 +211,17 @@ class InverseDynamicsLearner():
             self.improvement_proportions = regime_params["improvement_proportions"]
             self.prev_bests = [np.inf for _ in range(len(self.improvement_proportions))]
             self.switch_frequency = regime_params["switch_frequency"]
+            self.alphas = regime_params['alphas']
             self.model_save_loss = sum(self.log_losses * np.array(regime_params["model_save_weights"]))
             # Update progression is a list of list of ints in the range(len(self.loss_fns))
             self.loss_progression = [sum(self.loss_fns[config]) for config in regime_params["update_progression"]]
             #TODO Check for equivalent losses
-            self.update_progression = [tf.train.AdamOptimizer(self.alpha, self.beta1, self.beta1).minimize(
+            self.update_progression = [tf.train.AdamOptimizer(self.alphas[i], self.beta1, self.beta2).minimize(
                     loss, name="opt_{}".format(i)) for i,loss in enumerate(self.loss_progression)]
             if regime_params["initial_update"] is not None:
                 self.curr_update_index = -1
                 self.curr_loss = sum(self.loss_fns[regime_params["initial_update"]])
-                self.curr_update = tf.train.AdamOptimizer(self.alpha, self.beta1, self.beta1).minimize(self.curr_loss)
+                self.curr_update = tf.train.AdamOptimizer(self.alpha, self.beta1, self.beta2).minimize(self.curr_loss)
             else:
                 self.curr_update_index = 0
                 self.curr_loss = self.loss_progression[self.curr_update_index]
@@ -237,7 +238,7 @@ class InverseDynamicsLearner():
             q_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=self.q_scope)
             t_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=self.dyn_scope)
             all_vars = q_vars + t_vars
-            opts = [tf.train.AdamOptimizer(self.alpha, self.beta1, self.beta1) for _ in range(self.num_tasks)]
+            opts = [tf.train.AdamOptimizer(self.alpha, self.beta1, self.beta2) for _ in range(self.num_tasks)]
             self.all_gvs = [opts[i].compute_gradients(self.task_losses[i], all_vars) for i in range(self.num_tasks)]
             sep_gvs = [[a for a in zip(*gv_set)] for gv_set in self.all_gvs]
 
@@ -256,7 +257,7 @@ class InverseDynamicsLearner():
         assert(self.regime is not None)
 
         if dyn_pretrain_iters > 0:
-            temp_update = tf.train.AdamOptimizer(self.alpha, self.beta1, self.beta1).minimize(self.neg_avg_trans_log_likelihood)
+            temp_update = tf.train.AdamOptimizer(self.alpha, self.beta1, self.beta2).minimize(self.neg_avg_trans_log_likelihood)
 
         tf.global_variables_initializer().run(session=self.sess)
 

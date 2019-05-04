@@ -20,7 +20,7 @@ def default_config():
     mdp_map = get_tile_map(mdp_num)
 
     gamma = 0.99
-    alpha = 1e-4
+    alpha = 5e-4
     beta1 = 0.9
     beta2 = 0.999999
 
@@ -51,10 +51,10 @@ def default_config():
     #Frank Wolfe Config
     batch_size = 200
     n_training_iters = 150000
-    dyn_pretrain_iters = 0
+    dyn_pretrain_iters = 10000
 
 
-    loss_configurations = [[0,3],[1,4]]
+    loss_configurations = [[5],[1,4]]
 
     tab_save_freq = 50
     seed = 0
@@ -148,7 +148,7 @@ def simple_map_config_mellow_pretrain():
     dyn_pretrain_iters = 20000
 
     # Config made up of ['nall', 'ntll', 'tde', 'tde_sg_q', 'tde_sg_t']
-    loss_configurations = [[0,3],[1,4]]
+    loss_configurations = [[5],[1,4]]
 
     tab_save_freq = 50
     seed = 0

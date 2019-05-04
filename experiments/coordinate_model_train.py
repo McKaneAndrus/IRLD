@@ -21,7 +21,7 @@ def default_config():
     mdp_map = get_tile_map(mdp_num)
 
     gamma = 0.99
-    alpha = 1e-4
+    alpha = 1e-3
     beta1 = 0.9
     beta2 = 0.999999
 
@@ -54,13 +54,14 @@ def default_config():
     #Coordinate Config
     batch_size = 200
     n_training_iters = 500000
-    dyn_pretrain_iters = 0
+    dyn_pretrain_iters = 20000
     horizon = 5000
-    improvement_proportions = [-1, 0.1]
+    alphas = [1e-3, 1e-4]
+    improvement_proportions = [0.02, 0.02]
     switch_frequency = 500
     # Config made up of ['nall', 'ntll', 'tde', 'tde_sg_q', 'tde_sg_t']
     initial_update = None
-    update_progression = [[0,1],[5]]
+    update_progression = [[1,2],[5]]
     model_save_weights = [1.0, 1.0, 1.0, 10.0]
 
     tab_save_freq = 200
@@ -129,7 +130,7 @@ def simple_map_config_mellow():
 def coordinate_train(_run, mdp_map, gamma, alpha, beta1, beta2, constraint_batch_size, q_n_layers, q_layer_size, q_activation,
             q_output_activation, dyn_n_layers, dyn_layer_size, dyn_activation, dyn_output_activation, boltz_beta, mellowmax,
             gamma_demo, temp_boltz_beta, n_demos, demo_time_steps, n_training_iters, dyn_pretrain_iters, batch_size,
-            horizon, improvement_proportions, switch_frequency, initial_update, update_progression, model_save_weights, tab_save_freq,
+            horizon, alphas, improvement_proportions, switch_frequency, initial_update, update_progression, model_save_weights, tab_save_freq,
             gpu_num, seed):
 
     os_setup(gpu_num)
@@ -161,7 +162,8 @@ def coordinate_train(_run, mdp_map, gamma, alpha, beta1, beta2, constraint_batch
                          'switch_frequency': switch_frequency,
                          'initial_update': initial_update,
                          'update_progression':update_progression,
-                         'model_save_weights': model_save_weights}
+                         'model_save_weights': model_save_weights,
+                         'alphas': alphas}
 
         model.initialize_training_regime("coordinate", regime_params=regime_params)
 
