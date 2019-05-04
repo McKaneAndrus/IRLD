@@ -27,8 +27,8 @@ def default_config():
 
     constraint_batch_size = None
 
-    q_n_layers = 2
-    q_layer_size = 512
+    q_n_layers = 4
+    q_layer_size = 128
     q_activation = tf.nn.relu
     q_output_activation = None
 
@@ -54,7 +54,7 @@ def default_config():
     #weighted Config
     batch_size = 200
     n_training_iters = 200000
-    dyn_pretrain_iters = 50000
+    dyn_pretrain_iters = 20000
     # Config made up of ['nall', 'ntll', 'tde', 'tde_sg_q', 'tde_sg_t']
     losses = [0,1,3,4]
     loss_weights = [1.0, 2.0, 1.0, 2.0]
@@ -76,8 +76,8 @@ def simple_map_config_mellow():
 
     constraint_batch_size = None
 
-    q_n_layers = 2
-    q_layer_size = 512
+    q_n_layers = 4
+    q_layer_size = 128
     q_activation = tf.nn.relu
     q_output_activation = None
 

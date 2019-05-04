@@ -149,6 +149,9 @@ class InverseDynamicsLearner():
         target_t = self.constraint_rew_t_ph + gamma * tf.reduce_sum(softmax_V, axis=1)
         self.td_err = tf.reduce_mean((constraint_q_t - target_t) ** 2)
 
+        #Experimental
+        self.ll_weighted_td_err = self.td_err * (self.neg_avg_trans_log_likelihood + self.neg_avg_act_log_likelihood)
+
         # bellman residual penalty error with a stop gradient on transitions to prevent the bellman update from
         # 'hacking' the transition function to overly explain the demonstrations. This happens a lot early on before the
         # Q-values have obtained much meaning
@@ -174,11 +177,11 @@ class InverseDynamicsLearner():
         self.true_q_err = tf.reduce_sum((self.true_qs_ph - self.test_qs_t)**2)
 
         self.loss_fns = np.array([self.neg_avg_act_log_likelihood, self.neg_avg_trans_log_likelihood,
-                         self.td_err, self.td_err_sgq, self.td_err_sgt, self.true_q_err])
-        self.loss_fns_titles = np.array(['nall', 'ntll', 'tde', 'tde_sg_q', 'tde_sg_t', 'true_q_err'])
+                         self.td_err, self.td_err_sgq, self.td_err_sgt, self.ll_weighted_td_err]) #, self.true_q_err])
+        self.loss_fns_titles = np.array(['nall', 'ntll', 'tde', 'tde_sg_q', 'tde_sg_t', 'll_tde']) #, 'true_q_err'])
 
-        self.log_losses = self.loss_fns[:3]
-        self.log_loss_titles = self.loss_fns_titles[:3]
+        self.log_losses = self.loss_fns[[0,1,2,5]]
+        self.log_loss_titles = self.loss_fns_titles[[0,1,2,5]]
 
         self.regime = None
 
@@ -450,3 +453,235 @@ class InverseDynamicsLearner():
             feed_dict[self.true_qs_ph] = true_qs
 
         return feed_dict
+
+
+# class WeightedMGDAInverseDynamicsLearner(InverseDynamicsLearner):
+#
+#     def initialize_training_regime(self, regime_params, validation_freq=20):
+#
+#
+#         self.validation_freq = validation_freq
+#
+#         # Update switching initilization
+#         self.update_horizon = regime_params["horizon"]
+#         self.slope_thresholds = regime_params["slope_thresholds"]
+#         self.switch_frequency = regime_params["switch_frequency"]
+#         self.model_save_loss = sum(self.log_losses * np.array(regime_params["model_save_weights"]))
+#         # Update progression is a list of list of ints in the range(len(self.loss_fns))
+#         self.method_progression = regime_params["method_progression"]
+#         self.curr_method_index = 0
+#         self.curr_method = self.method_progression[self.curr_method_index]
+#
+#
+#         # Weighted Training Initialization Section
+#         losses = regime_params['losses']
+#         loss_weights = regime_params['loss_weights']
+#         assert len(losses) == len(loss_weights)
+#         self.weighted_loss = sum([self.loss_fns[losses[i]] * loss_weights[i] for i in range(len(losses))])
+#         self.log_losses = np.append(self.log_losses, [self.weighted_loss])
+#         self.log_loss_titles = np.append(self.log_loss_titles, ["weighted_loss"])
+#         self.weighted_update = tf.train.AdamOptimizer(self.alpha, self.beta1, self.beta1).minimize(self.weighted_loss)
+#
+#
+#         # MGDA Training Initialization Section
+#         self.num_tasks = len(regime_params["loss_configurations"])
+#         self.scales = [tf.placeholder(tf.float32, [1], name="scale{}".format(i)) for i in range(self.num_tasks)]
+#         self.mgda_task_losses = [sum(self.loss_fns[config]) for config in regime_params["loss_configurations"]]
+#
+#         q_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=self.q_scope)
+#         t_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=self.dyn_scope)
+#         all_vars = q_vars + t_vars
+#         opts = [tf.train.AdamOptimizer(self.alpha, self.beta1, self.beta1) for _ in range(self.num_tasks)]
+#         self.all_gvs = [opts[i].compute_gradients(self.mgda_task_losses[i], all_vars) for i in range(self.num_tasks)]
+#         sep_gvs = [[a for a in zip(*gv_set)] for gv_set in self.all_gvs]
+#
+#         self.grads = [[tf.clip_by_norm(sep_gvs[i][0][j], self.mgda_task_losses[i]) for j in range(len(sep_gvs[i][0]))]
+#                             for i in range(self.num_tasks)]
+#         self.gvars = [gv[1] for gv in sep_gvs]
+#
+#         self.scaled_grads = [[tf.multiply(g, self.scales[i]) for g in self.grads[i]] for i in range(self.num_tasks)]
+#         self.mgda_updates = [opts[i].apply_gradients(zip(self.scaled_grads[i], self.gvars[i])) for i in range(self.num_tasks)]
+#
+#
+#     def train(self, n_training_iters, rollouts, train_idxes, batch_size, constraints, val_demo_batch, out_dir,
+#                     q_states, adt_samples, dyn_pretrain_iters=0, tab_save_freq = 1000, _run=None, true_qs=None,
+#                     verbose=True, q_source_path=None, dyn_source_path=None):
+#
+#         assert(self.regime is not None)
+#
+#         if dyn_pretrain_iters > 0:
+#             temp_update = tf.train.AdamOptimizer(self.alpha, self.beta1, self.beta1).minimize(self.neg_avg_trans_log_likelihood)
+#
+#         tf.global_variables_initializer().run(session=self.sess)
+#
+#         # Tabular logging setup
+#         tab_model_out_dir = os.path.join(out_dir, "tab")
+#         if not os.path.exists(tab_model_out_dir):
+#             os.makedirs(tab_model_out_dir)
+#         if true_qs is not None:
+#             pkl.dump(true_qs, open(os.path.join(tab_model_out_dir, 'true_q_vals.pkl'), 'wb'))
+#         pkl.dump(self.mdp.adt_mat, open(os.path.join(tab_model_out_dir, 'true_adt_probs.pkl'), 'wb'))
+#
+#         # Load pretrained models with same scope
+#         if q_source_path is not None:
+#             load_tf_vars(self.sess, self.q_scope, q_source_path)
+#         if dyn_source_path is not None:
+#             load_tf_vars(self.sess, self.dyn_scope, dyn_source_path)
+#
+#         q_f = os.path.join(out_dir, "q_fn")
+#         dyn_f = os.path.join(out_dir, "dyn_fn")
+#
+#         train_time = 0
+#         # Initialize train_logs to have an array for train and validation evaluations
+#         full_train_logs = {}
+#         for k in self.log_loss_titles:
+#             full_train_logs[k] = []
+#             full_train_logs["val_" + k] = []
+#
+#         if self.regime == "coordinate":
+#             total_loss = []
+#             best_model_score = np.inf
+#
+#         if self.regime == "MGDA":
+#             full_train_logs["frank_wolfe"] = []
+#
+#         val_feed = self._get_feed_dict(val_demo_batch, constraints, true_qs=true_qs)
+#
+#         if dyn_pretrain_iters > 0:
+#             print("Pretraining the dynamics model with baseline method.")
+#             for i in range(dyn_pretrain_iters):
+#                 demo_batch = sample_batch(rollouts, train_idxes, batch_size)
+#                 feed_dict = self._get_feed_dict(demo_batch, constraints)
+#                 self.sess.run(temp_update, feed_dict=feed_dict)
+#
+#                 if i % self.validation_freq == 0:
+#                     val_loss = self.sess.run(self.neg_avg_trans_log_likelihood, feed_dict=val_feed)
+#
+#                 if i % 1000 == 0:
+#                     print("{}: {}".format(i, val_loss))
+#
+#
+#         try:
+#
+#             for train_time in range(n_training_iters):
+#
+#                 demo_batch = sample_batch(rollouts, train_idxes, batch_size)
+#                 feed_dict = self._get_feed_dict(demo_batch, constraints, true_qs=true_qs)
+#
+#                 if self.regime == "weighted":
+#                     # loss_data = self.sess.run(list(self.log_losses) + [self.update], feed_dict=feed_dict)[:-1]
+#                     self.sess.run(self.update, feed_dict=feed_dict)
+#
+#                 if self.regime == "coordinate":
+#                     loss_data = self.sess.run([self.curr_loss, self.curr_update], feed_dict=feed_dict)[0]
+#                     total_loss.append(loss_data)
+#
+#                 if self.regime == "MGDA":
+#                     loss_and_gvs = self.sess.run(list(self.log_losses) + [self.all_gvs], feed_dict=feed_dict)
+#                     loss_data, gvs = loss_and_gvs[:-1], loss_and_gvs[-1]
+#
+#                     grad_arrays = {}
+#                     for t in range(self.num_tasks):
+#                         # Compute gradients of each loss function wrt parameters
+#                         grad_arrays[t] = np.concatenate([gvs[t][i][0].flatten() for i in range(len(gvs))])
+#
+#                     # Frank-Wolfe iteration to compute scales.
+#                     sol, min_norm = find_min_norm_element(grad_arrays)
+#                     full_train_logs["frank_wolfe"] += [sol]
+#
+#                     # Scaled back-propagation
+#                     for i, s in enumerate(self.scales):
+#                         feed_dict[s] = [sol[i]]
+#
+#                     # Inefficient, takes gradients twice when we could just feed the gradients back in
+#                     self.sess.run(self.mgda_updates, feed_dict=feed_dict)
+#
+#                 # for i, loss in enumerate(loss_data):
+#                 #     full_train_logs[self.log_loss_titles[i]] += [loss]
+#
+#                 if train_time % self.validation_freq == 0:
+#                     val_loss_data = self.sess.run(list(self.log_losses), feed_dict=val_feed)
+#                     for i, loss in enumerate(val_loss_data):
+#                         metric_name = "val_" + self.log_loss_titles[i]
+#                         full_train_logs[metric_name] += [loss]
+#                         if _run is not None:
+#                             _run.log_scalar(metric_name, loss, train_time)
+#
+#                 if train_time % 500 == 0 and verbose:
+#                     print(str(train_time) + "\t" + "\t".join([str(k) + ": " +
+#                                                 str(round(full_train_logs["val_" + k][-1],7)) for k in self.log_loss_titles]))
+#                     if self.regime == "MGDA":
+#                         print(sol)
+#
+#                 if train_time % tab_save_freq == 0 and train_time != 0:
+#                     # self.mdp only used in this section, can remove that dependency if we want
+#                     q_vals = self.sess.run([self.test_qs_t], feed_dict={self.test_q_obs_t_feats_ph: q_states})[0]
+#                     adt_logits = self.sess.run([self.pred_obs], feed_dict={self.demo_tile_t_ph: adt_samples[:,0][np.newaxis].T,
+#                                                                     self.demo_act_t_ph: adt_samples[:,1][np.newaxis].T})[0]
+#                     adt_probs = softmax(adt_logits)
+#                     adt_probs = adt_probs.reshape(self.mdp.tile_types, self.mdp.num_actions, self.mdp.num_directions)
+#                     pkl.dump(q_vals, open(os.path.join(tab_model_out_dir, 'q_vals_{}.pkl'.format(train_time)), 'wb'))
+#                     pkl.dump(adt_probs, open(os.path.join(tab_model_out_dir, 'adt_probs_{}.pkl'.format(train_time)), 'wb'))
+#
+#                 # Check for update_switching
+#                 if self.regime == "coordinate" and train_time % self.switch_frequency and self._update_switcher(total_loss):
+#                     total_loss = []
+#                     model_score = self.sess.run(self.model_save_loss, feed_dict=val_feed)
+#                     if model_score < best_model_score:
+#                         print("Current model ({}) is better than previous best ({})".format(model_score, best_model_score))
+#                         # Save as file
+#                         q_vals = self.sess.run([self.test_qs_t], feed_dict={self.test_q_obs_t_feats_ph: q_states})[0]
+#                         adt_logits = \
+#                         self.sess.run([self.pred_obs], feed_dict={self.demo_tile_t_ph: adt_samples[:, 0][np.newaxis].T,
+#                                                                   self.demo_act_t_ph: adt_samples[:, 1][np.newaxis].T})[
+#                             0]
+#                         adt_probs = softmax(adt_logits)
+#                         adt_probs = adt_probs.reshape(self.mdp.tile_types, self.mdp.num_actions,
+#                                                       self.mdp.num_directions)
+#                         pkl.dump(q_vals, open(os.path.join(tab_model_out_dir, 'final_q_vals.pkl'), 'wb'))
+#                         pkl.dump(adt_probs, open(os.path.join(tab_model_out_dir, 'final_adt_probs.pkl'), 'wb'))
+#
+#                         pkl.dump(self.mdp, open(os.path.join(out_dir, 'mdp.pkl'), 'wb'))
+#
+#                         save_tf_vars(self.sess, self.q_scope, q_f)
+#                         save_tf_vars(self.sess, self.dyn_scope, dyn_f)
+#                         best_model_score = model_score
+#
+#         except KeyboardInterrupt:
+#             print("Experiment Interrupted at timestep {}".format(train_time))
+#             pass
+#
+#         if self.regime == "coordinate":
+#             if best_model_score == np.inf:
+#                 save_tf_vars(self.sess, self.q_scope, q_f)
+#                 save_tf_vars(self.sess, self.dyn_scope, dyn_f)
+#             return q_f, dyn_f if _run is None else q_f, dyn_f, full_train_logs
+#
+#         # Save as file
+#         q_vals = self.sess.run([self.test_qs_t], feed_dict={self.test_q_obs_t_feats_ph: q_states})[0]
+#         adt_logits = self.sess.run([self.pred_obs], feed_dict={self.demo_tile_t_ph: adt_samples[:, 0][np.newaxis].T,
+#                                                                self.demo_act_t_ph: adt_samples[:, 1][np.newaxis].T})[0]
+#         adt_probs = softmax(adt_logits)
+#         adt_probs = adt_probs.reshape(self.mdp.tile_types, self.mdp.num_actions, self.mdp.num_directions)
+#         pkl.dump(q_vals, open(os.path.join(tab_model_out_dir, 'final_q_vals.pkl'), 'wb'))
+#         pkl.dump(adt_probs, open(os.path.join(tab_model_out_dir, 'final_adt_probs.pkl'), 'wb'))
+#
+#         pkl.dump(self.mdp, open(os.path.join(out_dir, 'mdp.pkl'), 'wb'))
+#
+#         save_tf_vars(self.sess, self.q_scope, q_f)
+#         save_tf_vars(self.sess, self.dyn_scope, dyn_f)
+#         return q_f, dyn_f if _run is None else q_f, dyn_f, full_train_logs
+#
+#     def _update_switcher(self, losses):
+#
+#         if len(losses) < self.update_horizons[self.curr_update_index]:
+#             return False
+#
+#         slope = np.polyfit(np.arange(self.update_horizon), losses[-self.update_horizon:], 1)[0]
+#         switch = -slope < self.slope_threshold
+#
+#         if switch:
+#             print("Loss delta at {}, switching to loss config {}".format(-slope, self.curr_update_index))
+#
+#         return switch
+#

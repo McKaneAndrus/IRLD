@@ -27,8 +27,8 @@ def default_config():
 
     constraint_batch_size = None
 
-    q_n_layers = 2
-    q_layer_size = 512
+    q_n_layers = 4
+    q_layer_size = 128
     q_activation = tf.nn.relu
     q_output_activation = None
 
@@ -60,8 +60,8 @@ def default_config():
     switch_frequency = 500
     # Config made up of ['nall', 'ntll', 'tde', 'tde_sg_q', 'tde_sg_t']
     initial_update = [1]
-    update_progression = [[0,1,3],[0,1,4]]
-    model_save_weights = [1.0, 1.0, 1.0]
+    update_progression = [[0,1],[5]]
+    model_save_weights = [1.0, 1.0, 1.0, 10.0]
 
     tab_save_freq = 200
 
@@ -80,8 +80,8 @@ def simple_map_config_mellow():
 
     constraint_batch_size = None
 
-    q_n_layers = 2
-    q_layer_size = 512
+    q_n_layers = 4
+    q_layer_size = 128
     q_activation = tf.nn.relu
     q_output_activation = None
 
@@ -111,9 +111,9 @@ def simple_map_config_mellow():
     horizon = 5000
     slope_threshold = 1e-6
     switch_frequency = 500
-    # Config made up of ['nall', 'ntll', 'tde', 'tde_sg_q', 'tde_sg_t']
+    # Config made up of ['nall', 'ntll', 'tde', 'tde_sg_q', 'tde_sg_t', 'll_tde']
     initial_update = [1]
-    update_progression = [[0,1,2],[4],[3]]
+    update_progression = [[0,1],[5]]
     model_save_weights = [1.0, 1.0, 1.0]
 
     tab_save_freq = 200
