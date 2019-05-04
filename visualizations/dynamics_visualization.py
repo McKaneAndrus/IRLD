@@ -64,8 +64,8 @@ def visualize_dynamics(data, alg_labels, tile_labels, out_file='tmp.png', fig_wi
         top_row_i = num_rows - 1 - (tile_i * (1 + num_algs))
 
         # Plot the first row, the title and column labels.
-        plt.text(0, top_row_i + margin, tile, size=50, ha='left', va='bottom')
-        for act_i, act in enumerate(['up', 'left', 'right', 'down', 'stay']):
+        plt.text(1 - margin, top_row_i + margin, tile, fontdict={'weight': 'bold'}, size=50, ha='right', va='bottom')
+        for act_i, act in enumerate(['left', 'down', 'right', 'up', 'stay']):
             plt.text(act_i + 1.5, top_row_i + margin, act, size=30, ha='center', va='bottom')
 
         # Plot the subsequent rows, with a row label and then the appropriate cross visualizations.
@@ -76,15 +76,15 @@ def visualize_dynamics(data, alg_labels, tile_labels, out_file='tmp.png', fig_wi
             for act_i, act in enumerate(data[alg_i][tile_i]):
                 # TODO: Don't hard code this transposition of actions into up/left/right/down/stay
                 add_boxed_text(act_i + 11. / 8, top_row_i - alg_i - 3. / 8, 1. / 4, 1. / 4,
-                               act[0], green_fill(act[0]), plt, ax)
+                               act[3], green_fill(act[3]), plt, ax)
                 add_boxed_text(act_i + 9. / 8, top_row_i - alg_i - 5. / 8, 1. / 4, 1. / 4,
-                               act[1], green_fill(act[1]), plt, ax)
+                               act[0], green_fill(act[0]), plt, ax)
                 add_boxed_text(act_i + 11. / 8, top_row_i - alg_i - 5. / 8, 1. / 4, 1. / 4,
                                act[4], green_fill(act[4]), plt, ax)
                 add_boxed_text(act_i + 13. / 8, top_row_i - alg_i - 5. / 8, 1. / 4, 1. / 4,
                                act[2], green_fill(act[2]), plt, ax)
                 add_boxed_text(act_i + 11. / 8, top_row_i - alg_i - 7. / 8, 1. / 4, 1. / 4,
-                               act[3], green_fill(act[3]), plt, ax)
+                               act[1], green_fill(act[1]), plt, ax)
                 ax.add_patch(Rectangle((act_i + 1, top_row_i - alg_i - 1), 1, 1, fill=False, linewidth=3))
 
     plt.gca().set_aspect('equal', adjustable='box')
@@ -96,8 +96,8 @@ def visualize_dynamics(data, alg_labels, tile_labels, out_file='tmp.png', fig_wi
 def config():
     fig_width = 8
     margin = .1
-    alg_labels = ["a"]
-    tile_labels = ["a", "b"]
+    alg_labels = "Experiment"
+    tile_labels = "0,1"
     out_dir = "logs/generated_images_"
 
     _ = locals()  # quieten flake8 unused variable warning
@@ -105,10 +105,10 @@ def config():
 
 
 
-def load_dynamics(experiment_nums):
-    data = [pkl.load(open(os.path.join("logs", "models", str(experiment_num), "tab", "final_adt_probs.pkl"), "rb")) for experiment_num in experiment_nums]
-    true_data = pkl.load(open(os.path.join("logs", "models", str(experiment_nums[0]), "tab", "true_adt_probs.pkl"), "rb"))
-    data.insert(0, true_data)
+def load_dynamics(experiment_nums, alg_labels):
+    data = [pkl.load(open(os.path.join("logs", "models", str(experiment_nums[0]), "tab", "true_adt_probs.pkl"), "rb"))]
+    alg_labels.insert(0, 'Ground Truth')
+    data.extend([pkl.load(open(os.path.join("logs", "models", str(experiment_num), "tab", "final_adt_probs.pkl"), "rb")) for experiment_num in experiment_nums])
     return np.array(data)
 
 
@@ -117,11 +117,12 @@ def main(out_dir, _run, experiment_nums, alg_labels, tile_labels, fig_width, mar
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 
+    alg_labels = alg_labels.split(",")
+    tile_labels = tile_labels.split(",")
     if len(experiment_nums) != len(alg_labels):
         raise Exception("Was given {} experiments and {} alg labels, these must match".format(len(experiment_nums),
                                                                                                len(alg_labels)))
-
-    data = load_dynamics(experiment_nums)
+    data = load_dynamics(experiment_nums, alg_labels)
 
     if len(data[0]) != len(tile_labels):
         raise Exception("Had {} tile types and {} tile labels, these must match".format(len(data[0]),
