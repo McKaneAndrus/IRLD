@@ -9,7 +9,7 @@ random_map_coordinate_model_train_ex.observers.append(FileStorageObserver.create
 
 @random_map_coordinate_model_train_ex.config
 def config():
-    samples = 3
+    samples = 5
     seed = 42
     map_height = 15
     map_width = 15

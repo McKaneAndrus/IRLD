@@ -56,10 +56,10 @@ def default_config():
     n_training_iters = 500000
     dyn_pretrain_iters = 0
     horizon = 5000
-    slope_threshold = 1e-6
+    improvement_proportions = [-1, 0.1]
     switch_frequency = 500
     # Config made up of ['nall', 'ntll', 'tde', 'tde_sg_q', 'tde_sg_t']
-    initial_update = [1]
+    initial_update = None
     update_progression = [[0,1],[5]]
     model_save_weights = [1.0, 1.0, 1.0, 10.0]
 
@@ -109,7 +109,7 @@ def simple_map_config_mellow():
     n_training_iters = 500000
     dyn_pretrain_iters = 0
     horizon = 5000
-    slope_threshold = 1e-6
+    improvement_proportions = [-1, 0.1]
     switch_frequency = 500
     # Config made up of ['nall', 'ntll', 'tde', 'tde_sg_q', 'tde_sg_t', 'll_tde']
     initial_update = [1]
@@ -129,7 +129,7 @@ def simple_map_config_mellow():
 def coordinate_train(_run, mdp_map, gamma, alpha, beta1, beta2, constraint_batch_size, q_n_layers, q_layer_size, q_activation,
             q_output_activation, dyn_n_layers, dyn_layer_size, dyn_activation, dyn_output_activation, boltz_beta, mellowmax,
             gamma_demo, temp_boltz_beta, n_demos, demo_time_steps, n_training_iters, dyn_pretrain_iters, batch_size,
-            horizon, slope_threshold, switch_frequency, initial_update, update_progression, model_save_weights, tab_save_freq,
+            horizon, improvement_proportions, switch_frequency, initial_update, update_progression, model_save_weights, tab_save_freq,
             gpu_num, seed):
 
     os_setup(gpu_num)
@@ -157,7 +157,7 @@ def coordinate_train(_run, mdp_map, gamma, alpha, beta1, beta2, constraint_batch
                                     mellowmax=mellowmax, alpha=alpha, beta1=beta1, beta2=beta2, seed=seed) #, q_scope=q_scope, dyn_scope=dyn_scope)
 
         regime_params = {"horizon": horizon,
-                         'slope_threshold':slope_threshold,
+                         'improvement_proportions':improvement_proportions,
                          'switch_frequency': switch_frequency,
                          'initial_update': initial_update,
                          'update_progression':update_progression,

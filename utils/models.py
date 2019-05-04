@@ -208,20 +208,24 @@ class InverseDynamicsLearner():
         if regime == "coordinate":
             # Coordinate descent training regime
             self.update_horizon = regime_params["horizon"]
-            self.slope_threshold = regime_params["slope_threshold"]
+            self.improvement_proportions = regime_params["improvement_proportions"]
+            self.prev_bests = [np.inf for _ in range(len(self.improvement_proportions))]
             self.switch_frequency = regime_params["switch_frequency"]
-            if regime_params["initial_update"] is not None:
-                self.curr_loss = sum(self.loss_fns[regime_params["initial_update"]])
-                self.curr_update = tf.train.AdamOptimizer(self.alpha, self.beta1, self.beta1).minimize(self.curr_loss)
-                self.curr_update_index = -1
-            else:
-                self.curr_update_index = 0
             self.model_save_loss = sum(self.log_losses * np.array(regime_params["model_save_weights"]))
             # Update progression is a list of list of ints in the range(len(self.loss_fns))
             self.loss_progression = [sum(self.loss_fns[config]) for config in regime_params["update_progression"]]
             #TODO Check for equivalent losses
             self.update_progression = [tf.train.AdamOptimizer(self.alpha, self.beta1, self.beta1).minimize(
                     loss, name="opt_{}".format(i)) for i,loss in enumerate(self.loss_progression)]
+            if regime_params["initial_update"] is not None:
+                self.curr_update_index = -1
+                self.curr_loss = sum(self.loss_fns[regime_params["initial_update"]])
+                self.curr_update = tf.train.AdamOptimizer(self.alpha, self.beta1, self.beta1).minimize(self.curr_loss)
+            else:
+                self.curr_update_index = 0
+                self.curr_loss = self.loss_progression[self.curr_update_index]
+                self.curr_update = self.update_progression[self.curr_update_index]
+
 
 
         if regime == "MGDA":
@@ -417,17 +421,24 @@ class InverseDynamicsLearner():
         return q_f, dyn_f if _run is None else q_f, dyn_f, full_train_logs
 
 
-    def _update_switcher(self, losses):
+    def _update_switcher(self, losses, running_dist=50):
 
         if len(losses) < self.update_horizon:
             return False
 
-        slope = np.polyfit(np.arange(self.update_horizon), losses[-self.update_horizon:], 1)[0]
-        switch = -slope < self.slope_threshold
+        if self.prev_bests[self.curr_update_index] == np.inf:
+            self.prev_bests[self.curr_update_index] = (sum(losses[:running_dist])/running_dist)
+            return False
+
+
+        recent_loss = (sum(losses[-running_dist:])/running_dist)
+        improvement = 1 - recent_loss/self.prev_bests[self.curr_update_index]
+        switch = improvement > self.improvement_proportions[self.curr_update_index]
 
         if switch:
+            self.prev_bests[self.curr_update_index] = recent_loss
             self.curr_update_index = (self.curr_update_index + 1) % len(self.update_progression)
-            print("Loss delta at {}, switching to loss config {}".format(-slope, self.curr_update_index))
+            print("Loss improvement at {}, switching to loss config {}".format(improvement, self.curr_update_index))
             self.curr_loss = self.loss_progression[self.curr_update_index]
             self.curr_update = self.update_progression[self.curr_update_index]
 
@@ -464,7 +475,7 @@ class InverseDynamicsLearner():
 #
 #         # Update switching initilization
 #         self.update_horizon = regime_params["horizon"]
-#         self.slope_thresholds = regime_params["slope_thresholds"]
+#         self.improvement_proportionss = regime_params["improvement_proportionss"]
 #         self.switch_frequency = regime_params["switch_frequency"]
 #         self.model_save_loss = sum(self.log_losses * np.array(regime_params["model_save_weights"]))
 #         # Update progression is a list of list of ints in the range(len(self.loss_fns))
@@ -678,7 +689,7 @@ class InverseDynamicsLearner():
 #             return False
 #
 #         slope = np.polyfit(np.arange(self.update_horizon), losses[-self.update_horizon:], 1)[0]
-#         switch = -slope < self.slope_threshold
+#         switch = -slope < self.improvement_proportions
 #
 #         if switch:
 #             print("Loss delta at {}, switching to loss config {}".format(-slope, self.curr_update_index))
