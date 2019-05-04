@@ -10,7 +10,7 @@ import pickle as pkl
 
 class InverseDynamicsLearner():
 
-    def __init__(self, mdp, sess, gamma=0.99, adt=True, mellowmax=False, boltz_beta=50, mlp_params=None,
+    def __init__(self, mdp, sess, gamma=0.99, adt=True, mellowmax=None, boltz_beta=50, mlp_params=None,
                     alpha=1e-4, beta1=0.9, beta2=0.999999, seed=0, dyn_scope="Dynamics", q_scope="Qs"):
 
         mlp_params = {} if mlp_params is None else mlp_params
@@ -130,42 +130,63 @@ class InverseDynamicsLearner():
 
         # Q-values used to calculate 'V' in the bellman-residual
         cqtp1_misshaped = build_mlp(constraint_sprimes_reshaped,
-                                    n_act_dim, q_scope,
+                                    n_act_dim, scope="target",
                                     n_layers=q_n_layers, size=q_layer_size,
                                     activation=q_layer_activation, output_activation=q_output_activation,
-                                    reuse=True)
+                                    reuse=False)
 
-        constraint_q_tp1 = tf.reshape(cqtp1_misshaped, (self.constraint_batch_size_ph, n_dirs, n_act_dim))
+        constraint_q_tp1 = tf.reshape(tf.stop_gradient(cqtp1_misshaped), (self.constraint_batch_size_ph, n_dirs, n_act_dim))
 
-        if mellowmax:
-            constraint_v_tp1 = (tf.reduce_logsumexp(constraint_q_tp1 * boltz_beta, axis=2) - np.log(n_act_dim)) / boltz_beta
-        else:
-            constraint_v_tp1 = tf.reduce_logsumexp(constraint_q_tp1 * boltz_beta, axis=2) / boltz_beta
+        # cqtp1_misshaped = build_mlp(constraint_sprimes_reshaped,
+        #                             n_act_dim, scope=q_scope,
+        #                             n_layers=q_n_layers, size=q_layer_size,
+        #                             activation=q_layer_activation, output_activation=q_output_activation,
+        #                             reuse=True)
+        #
+        # constraint_q_tp1 = tf.reshape(cqtp1_misshaped, (self.constraint_batch_size_ph, n_dirs, n_act_dim))
+
+        if mellowmax is None:
             # constraint_v_tp1 = tf.reduce_logsumexp(constraint_q_tp1, axis=2)
+            constraint_pi_tp1 = tf.nn.softmax(constraint_q_tp1 * boltz_beta, axis=2)
+            constraint_v_tp1 = tf.reduce_sum(constraint_q_tp1 * constraint_pi_tp1, axis=2)
+        else:
+            constraint_v_tp1 = (tf.reduce_logsumexp(constraint_q_tp1 * mellowmax, axis=2) - np.log(n_act_dim)) / mellowmax
+
+
 
         # bellman residual penalty error
         constraint_pred_probs = tf.nn.softmax(constraint_pred_obs, axis=1)
-        softmax_V = tf.multiply(constraint_v_tp1, constraint_pred_probs)
-        target_t = self.constraint_rew_t_ph + gamma * tf.reduce_sum(softmax_V, axis=1)
+        constraint_next_vs = tf.multiply(constraint_v_tp1, constraint_pred_probs)
+        target_t = self.constraint_rew_t_ph + gamma * tf.reduce_sum(constraint_next_vs, axis=1)
         self.td_err = tf.reduce_mean((constraint_q_t - target_t) ** 2)
 
         #Experimental
         self.ll_weighted_td_err = self.td_err * (self.neg_avg_trans_log_likelihood + self.neg_avg_act_log_likelihood)
+        self.td_err_weighted_ll = 1/(self.ll_weighted_td_err + 1e-8)
 
         # bellman residual penalty error with a stop gradient on transitions to prevent the bellman update from
         # 'hacking' the transition function to overly explain the demonstrations. This happens a lot early on before the
         # Q-values have obtained much meaning
 
-        softmax_V_sgt = tf.multiply(constraint_v_tp1, tf.stop_gradient(constraint_pred_probs))
-        target_t_sgt = self.constraint_rew_t_ph + gamma * tf.reduce_sum(softmax_V_sgt, axis=1)
+        constraint_next_vs_sgt = tf.multiply(constraint_v_tp1, tf.stop_gradient(constraint_pred_probs))
+        target_t_sgt = self.constraint_rew_t_ph + gamma * tf.reduce_sum(constraint_next_vs_sgt, axis=1)
         self.td_err_sgt = tf.reduce_mean((constraint_q_t - target_t_sgt) ** 2)
 
         # bellman residual penalty error with a stop gradient on q-fn to allow the bellman residual loss to update
         # differences in learned q-vals w.r.t. the dynamics model
 
-        softmax_V_sgq = tf.multiply(tf.stop_gradient(constraint_v_tp1), constraint_pred_probs)
-        target_t_sgq = self.constraint_rew_t_ph + gamma * tf.reduce_sum(softmax_V_sgq, axis=1)
+        constraint_next_vs_sgq = tf.multiply(tf.stop_gradient(constraint_v_tp1), constraint_pred_probs)
+        target_t_sgq = self.constraint_rew_t_ph + gamma * tf.reduce_sum(constraint_next_vs_sgq, axis=1)
         self.td_err_sgq = tf.reduce_mean((tf.stop_gradient(constraint_q_t) - target_t_sgq) ** 2)
+
+        # Set up target network
+        q_func_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=q_scope)
+        target_q_func_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope="target")
+        update_target_fn_vars = []
+        for var, var_target in zip(sorted(q_func_vars, key=lambda v: v.name),
+                                   sorted(target_q_func_vars, key=lambda v: v.name)):
+            update_target_fn_vars.append(var_target.assign(var))
+        self.update_target_fn = tf.group(*update_target_fn_vars)
 
         # True Qs for testing
         self.test_q_obs_t_feats_ph = tf.placeholder(tf.int32, [None, n_obs_feats], name="tqotf")
@@ -177,11 +198,11 @@ class InverseDynamicsLearner():
         self.true_q_err = tf.reduce_sum((self.true_qs_ph - self.test_qs_t)**2)
 
         self.loss_fns = np.array([self.neg_avg_act_log_likelihood, self.neg_avg_trans_log_likelihood,
-                         self.td_err, self.td_err_sgq, self.td_err_sgt, self.ll_weighted_td_err]) #, self.true_q_err])
-        self.loss_fns_titles = np.array(['nall', 'ntll', 'tde', 'tde_sg_q', 'tde_sg_t', 'll_tde']) #, 'true_q_err'])
+                         self.td_err, self.td_err_sgq, self.td_err_sgt, self.ll_weighted_td_err, self.td_err_weighted_ll]) #, self.true_q_err])
+        self.loss_fns_titles = np.array(['nall', 'ntll', 'tde', 'tde_sg_q', 'tde_sg_t', 'll_tde', 'tde_ll']) #, 'true_q_err'])
 
-        self.log_losses = self.loss_fns[[0,1,2,5]]
-        self.log_loss_titles = self.loss_fns_titles[[0,1,2,5]]
+        self.log_losses = self.loss_fns[[0,1,2,5,6]]
+        self.log_loss_titles = self.loss_fns_titles[[0,1,2,5,6]]
 
         self.regime = None
 
@@ -251,8 +272,8 @@ class InverseDynamicsLearner():
 
 
     def train(self, n_training_iters, rollouts, train_idxes, batch_size, constraints, val_demo_batch, out_dir,
-                    q_states, adt_samples, dyn_pretrain_iters=0, tab_save_freq = 1000, _run=None, true_qs=None,
-                    verbose=True, q_source_path=None, dyn_source_path=None):
+                    q_states, adt_samples, target_update_freq=50, dyn_pretrain_iters=0, tab_save_freq = 1000,
+                    _run=None, true_qs=None, verbose=True, q_source_path=None, dyn_source_path=None):
 
         assert(self.regime is not None)
 
@@ -363,6 +384,7 @@ class InverseDynamicsLearner():
                 if train_time % tab_save_freq == 0 and train_time != 0:
                     # self.mdp only used in this section, can remove that dependency if we want
                     q_vals = self.sess.run([self.test_qs_t], feed_dict={self.test_q_obs_t_feats_ph: q_states})[0]
+                    print(np.max(q_vals), np.median(q_vals))
                     adt_logits = self.sess.run([self.pred_obs], feed_dict={self.demo_tile_t_ph: adt_samples[:,0][np.newaxis].T,
                                                                     self.demo_act_t_ph: adt_samples[:,1][np.newaxis].T})[0]
                     adt_probs = softmax(adt_logits)
@@ -393,6 +415,9 @@ class InverseDynamicsLearner():
                         save_tf_vars(self.sess, self.q_scope, q_f)
                         save_tf_vars(self.sess, self.dyn_scope, dyn_f)
                         best_model_score = model_score
+
+                if train_time % target_update_freq == 0:
+                    self.sess.run(self.update_target_fn)
 
 
 

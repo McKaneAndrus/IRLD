@@ -30,6 +30,8 @@ def default_config():
     q_layer_size = 128
     q_activation = tf.nn.relu
     q_output_activation = None
+    target_update_freq = 50
+
 
     dyn_n_layers = 1
     dyn_layer_size = 256
@@ -40,7 +42,7 @@ def default_config():
     # Boltz-beta determines the "rationality" of the agent being modeled.
     # Setting it to higher values corresponds to "pure rationality"
     boltz_beta = 50
-    mellowmax = False
+    mellowmax = None
 
     #DEMO Config
     gamma_demo = 0.99
@@ -54,109 +56,16 @@ def default_config():
     dyn_pretrain_iters = 10000
 
 
-    loss_configurations = [[5],[1,4]]
+    loss_configurations = [[0,3,5,6],[1,4,5,6]]
 
-    tab_save_freq = 50
+    tab_save_freq = 200
     seed = 0
     gpu_num = 0
 
-@mgda_model_train_ex.named_config
-def simple_map_config_no_mellow_pretrain():
-    mdp_num = 0
-    mdp_map = get_tile_map(mdp_num)
-
-    gamma = 0.99
-    alpha = 1e-5
-    beta1 = 0.9
-    beta2 = 0.999999
-
-    constraint_batch_size = None
-
-    q_n_layers = 4
-    q_layer_size = 128
-    q_activation = tf.nn.relu
-    q_output_activation = None
-
-    dyn_n_layers = 1
-    dyn_layer_size = 256
-    dyn_activation = tf.nn.relu
-    dyn_output_activation = None
-
-    # Boltz-beta determines the "rationality" of the agent being modeled.
-    # Setting it to higher values corresponds to "pure rationality"
-    boltz_beta = 50
-    mellowmax = False
-
-    #DEMO Config
-    gamma_demo = 0.99
-    n_demos = 200
-    demo_time_steps = 40
-    temp_boltz_beta = 50
-
-    #Frank Wolfe Config
-    batch_size = 200
-    n_training_iters = 500000
-    dyn_pretrain_iters = 20000
-
-    loss_configurations = [[0,3],[1,4]]
-
-    tab_save_freq = 50
-    seed = 0
-    gpu_num = 0
-
-@mgda_model_train_ex.named_config
-def simple_map_config_mellow_pretrain():
-    mdp_num = 0
-
-    mdp_map = get_tile_map(mdp_num)
-    gamma = 0.99
-    alpha = 1e-5
-    beta1 = 0.9
-    beta2 = 0.999999
-
-    constraint_batch_size = None
-
-    q_n_layers = 4
-    q_layer_size = 128
-    q_activation = tf.nn.relu
-    q_output_activation = None
-
-    dyn_n_layers = 1
-    dyn_layer_size = 256
-    dyn_activation = tf.nn.relu
-    dyn_output_activation = None
-
-
-    # Boltz-beta determines the "rationality" of the agent being modeled.
-    # Setting it to higher values corresponds to "pure rationality"
-    boltz_beta = 50
-    mellowmax = False
-
-
-
-
-    #DEMO Config
-    gamma_demo = 0.99
-    n_demos = 200
-    demo_time_steps = 40
-    temp_boltz_beta = 50
-
-
-    #Frank Wolfe Config
-    batch_size = 200
-    n_training_iters = 500000
-    dyn_pretrain_iters = 20000
-
-    # Config made up of ['nall', 'ntll', 'tde', 'tde_sg_q', 'tde_sg_t']
-    loss_configurations = [[5],[1,4]]
-
-    tab_save_freq = 50
-    seed = 0
-    gpu_num = 0
 
 @mgda_model_train_ex.automain
 def mgda_train(_run, mdp_map, gamma, alpha, beta1, beta2, constraint_batch_size, q_n_layers, q_layer_size, q_activation,
-            q_output_activation, dyn_n_layers, dyn_layer_size, dyn_activation, dyn_output_activation, boltz_beta, mellowmax,
+            q_output_activation, target_update_freq, dyn_n_layers, dyn_layer_size, dyn_activation, dyn_output_activation, boltz_beta, mellowmax,
             gamma_demo, temp_boltz_beta, n_demos, demo_time_steps, n_training_iters, dyn_pretrain_iters, batch_size,
             loss_configurations, tab_save_freq, seed, gpu_num):
 
@@ -192,7 +101,7 @@ def mgda_train(_run, mdp_map, gamma, alpha, beta1, beta2, constraint_batch_size,
     out_dir = os.path.join("logs", "models", str(_run._id))
 
     model.train(n_training_iters, rollouts, train_idxes, batch_size, constraints, val_demo_batch, out_dir, states,
-                    adt_samples, dyn_pretrain_iters, tab_save_freq, _run, true_qs)
+                    adt_samples, target_update_freq, dyn_pretrain_iters, tab_save_freq, _run, true_qs)
 
     return _run._id
 

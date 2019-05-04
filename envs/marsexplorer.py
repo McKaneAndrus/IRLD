@@ -138,7 +138,7 @@ class MarsExplorerEnv(DiscreteEnv):
                 for a in range(num_actions):
                     li = P[s][a]
                     letter = desc[row, col]
-                    rew = self.penalty + self.rewards[s]
+                    rew = self.penalty + self.rewards[s] #if a == NOOP else self.penalty
                     if a == NOOP:
                         li.append((1.0, s, rew, False))
                     else:

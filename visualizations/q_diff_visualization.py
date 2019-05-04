@@ -22,6 +22,7 @@ sns.set(style="darkgrid")
 def visualize_q_diff(data, out_file):
     all_iters, all_models, true_qs = data
     plot_iters, q_diffs = [], []
+    print(all_models[0][-1], true_qs[0])
     for i in range(len(all_iters)):
         iters, models, true_q = all_iters[i], all_models[i], true_qs[i]
         q_diffs += [np.linalg.norm(true_q - model) for model in models]
