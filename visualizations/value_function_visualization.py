@@ -3,6 +3,9 @@ import matplotlib.colors as colors
 import matplotlib.pyplot as plt
 import numpy as np
 
+from matplotlib.patches import Rectangle
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+
 from sacred import Experiment
 from sacred.observers import FileStorageObserver
 
@@ -57,18 +60,34 @@ def visualize_value_function(q_val_list, mdp, q_val_labels, show_art, out_file):
         sub_ax.set_xticklabels([])
         sub_ax.set_yticklabels([])
 
-        plt.title('Art', fontsize=30, weight='bold')
+        plt.title('Map', fontsize=30, weight='bold')
 
         art_map = np.zeros([num_rows, num_cols, 3])
         max_reward = np.max(mdp.reward_map)
+        # Keep track of the minimum rewards of a reward square,
+        # which will be higher than np.min(mdp.reward_map)
+        min_reward = max_reward
         for y in range(num_rows):
             for x in range(num_cols):
                 color = MAP_COLORS[mdp.tile_map[y][x]]
                 if color == 'reward':
+                    min_reward = min(min_reward, mdp.reward_map[y][x])
                     color = cm.get_cmap("Blues")(mdp.reward_map[y][x] / max_reward)
                 art_map[y][x] = colors.to_rgb(color)
 
-        plt.imshow(art_map)
+        img = plt.imshow(art_map)
+        divider = make_axes_locatable(sub_ax)
+        cax = divider.append_axes("left", size="5%", pad=0.15)
+        cax.set_axis_off()
+
+        legend_colors = [
+            Rectangle((0, 0), 1, 1, facecolor=MAP_COLORS[b'F'], edgecolor='#000000'),
+            Rectangle((0, 0), 1, 1, facecolor=MAP_COLORS[b'U'], edgecolor='#000000'),
+            Rectangle((0, 0), 1, 1, facecolor=cm.get_cmap('Blues')(min_reward / max_reward), edgecolor='#000000'),
+            Rectangle((0, 0), 1, 1, facecolor=cm.get_cmap('Blues')(1.), edgecolor='#000000'),
+        ]
+        leg = cax.legend(legend_colors, ['Regular', 'Pit', 'Low Reward', 'High Reward'], fontsize=20)
+        leg.get_frame().set_edgecolor('#000000')
 
     for i, q_val in enumerate(q_val_list):
         # Get the x/y offset for this particular visualization within
@@ -112,7 +131,19 @@ def visualize_value_function(q_val_list, mdp, q_val_labels, show_art, out_file):
                 # Otherwise, just plot a point to indicate staying.
                 else:
                     plt.plot(x, y, 'mo')
-        plt.imshow(max_val, cmap='gray')
+        imshow = plt.imshow(max_val, cmap='gray')
+
+        # Weird hardcoding for the poster, yay!
+        if i + i_offset == 2:
+            divider = make_axes_locatable(sub_ax)
+            cax = divider.append_axes("left", size="5%", pad=0.15)
+            cbar = fig.colorbar(imshow, cax=cax, ticks=[np.min(max_val), np.max(max_val)])
+            cbar.ax.yaxis.set_ticks_position('left')
+            cbar.ax.set_yticklabels(['Min Q-Val', 'Max Q-Val'], fontsize=20)
+        else:
+            divider = make_axes_locatable(sub_ax)
+            cax = divider.append_axes("left", size="5%", pad=0.15)
+            cax.set_axis_off()
 
     plt.savefig(out_file, bbox_inches='tight')
 
