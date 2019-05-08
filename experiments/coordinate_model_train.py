@@ -9,6 +9,7 @@ from utils.demos_utils import get_demos
 from utils.experiment_utils import current_milli_time
 from utils.models import InverseDynamicsLearner
 from envs.mars_map_gen import make_map, get_mdp_from_map
+import numpy as np
 
 coordinate_model_train_ex = Experiment("coordinate_model_train")
 coordinate_model_train_ex.observers.append(FileStorageObserver.create('logs/sacred'))
@@ -21,20 +22,20 @@ def default_config():
     mdp_map = get_tile_map(mdp_num)
 
     gamma = 0.99
-    alpha = 5e-4
+    alpha = 1e-2
     beta1 = 0.9
     beta2 = 0.999999
 
     constraint_batch_size = None
 
-    q_n_layers = 4
+    q_n_layers = 1
     q_layer_size = 128
     q_activation = tf.nn.relu
     q_output_activation = None
     target_update_freq = 50
 
     dyn_n_layers = 1
-    dyn_layer_size = 256
+    dyn_layer_size = 64
     dyn_activation = tf.nn.relu
     dyn_output_activation = None
 
@@ -53,19 +54,21 @@ def default_config():
 
 
     #Coordinate Config
-    batch_size = 200
+    batch_size = 64
     n_training_iters = 500000
-    dyn_pretrain_iters = 10000
-    horizon = 5000
-    alphas = [5e-3, 1e-4]
-    improvement_proportions = [-1, 0.1]
+    dyn_pretrain_iters = 20000
+    horizon = 2000
+    alphas = [5e-3, 1e-3] #[1e-4, 1e-4,1e-2,1e-4]
+    improvement_proportions = [0.1, -np.inf] #[0.1, -1, 0.1]
     switch_frequency = 500
     # Config made up of ['nall', 'ntll', 'tde', 'tde_sg_q', 'tde_sg_t']
     initial_update = None
-    update_progression = [[4],[1,2,5]]
-    model_save_weights = [1.0, 1.0, 1.0, 1.0, 0.0]
+    update_progression = [[1,4], [0,3]] #[[0],[5],[4],[7]] #[[4],[0,4,5]]
+    # update_weights = [[1.],[1.],[10000,1.]]
+    model_save_weights = [1.0, 1.0, 1.0, 0.0, 0.0, 0.0]
 
     tab_save_freq = 200
+    clip_global = True
 
     seed = 0
     gpu_num = 0
@@ -78,14 +81,15 @@ def coordinate_train(_run, mdp_map, gamma, alpha, beta1, beta2, constraint_batch
             q_output_activation, target_update_freq, dyn_n_layers, dyn_layer_size, dyn_activation, dyn_output_activation, boltz_beta, mellowmax,
             gamma_demo, temp_boltz_beta, n_demos, demo_time_steps, n_training_iters, dyn_pretrain_iters, batch_size,
             horizon, alphas, improvement_proportions, switch_frequency, initial_update, update_progression, model_save_weights, tab_save_freq,
-            gpu_num, seed):
+            clip_global, gpu_num, seed):
 
     os_setup(gpu_num)
     tf.reset_default_graph()
     data_dir = os.path.join('data', '1.1')
     # q_scope, dyn_scope = load_scopes(data_dir)
-    sess = tf.Session()
-
+    tf_config = tf.ConfigProto()
+    tf_config.gpu_options.allow_growth = True
+    sess = tf.Session(config=tf_config)
 
     mdp = get_mdp_from_map(mdp_map)
 
@@ -110,7 +114,8 @@ def coordinate_train(_run, mdp_map, gamma, alpha, beta1, beta2, constraint_batch
                          'initial_update': initial_update,
                          'update_progression':update_progression,
                          'model_save_weights': model_save_weights,
-                         'alphas': alphas}
+                         'alphas': alphas,
+                         'clip_global':clip_global}
 
         model.initialize_training_regime("coordinate", regime_params=regime_params)
 

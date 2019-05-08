@@ -32,7 +32,7 @@ tile_map3 = [
         "FFFFFFFFF",
         "FFFFFFUFF",
         "FFFFFFUFF",
-        "FFFkFFFFF",
+        "FFFFFFFFF",
         "FFFFFFFFF",
         "SFFFFFFF3",
 ]

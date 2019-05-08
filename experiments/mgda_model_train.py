@@ -20,13 +20,13 @@ def default_config():
     mdp_map = get_tile_map(mdp_num)
 
     gamma = 0.99
-    alpha = 5e-4
+    alpha = 1e-3
     beta1 = 0.9
     beta2 = 0.999999
 
     constraint_batch_size = None
 
-    q_n_layers = 4
+    q_n_layers = 1
     q_layer_size = 128
     q_activation = tf.nn.relu
     q_output_activation = None
@@ -34,7 +34,7 @@ def default_config():
 
 
     dyn_n_layers = 1
-    dyn_layer_size = 256
+    dyn_layer_size = 64
     dyn_activation = tf.nn.relu
     dyn_output_activation = None
 
@@ -56,7 +56,7 @@ def default_config():
     dyn_pretrain_iters = 10000
 
 
-    loss_configurations = [[0,3,5,6],[1,4,5,6]]
+    loss_configurations = [[1,4],[0,3]]
 
     tab_save_freq = 200
     seed = 0
@@ -73,8 +73,9 @@ def mgda_train(_run, mdp_map, gamma, alpha, beta1, beta2, constraint_batch_size,
     tf.reset_default_graph()
     data_dir = os.path.join('data', '1.1')
     # q_scope, dyn_scope = load_scopes(data_dir)
-    sess = tf.Session()
-
+    tf_config = tf.ConfigProto()
+    tf_config.gpu_options.allow_growth = True
+    sess = tf.Session(config=tf_config)
     mdp = get_mdp_from_map(mdp_map)
 
     mlp_params = {'q_n_layers':q_n_layers,

@@ -171,6 +171,7 @@ def main(out_dir, _run, experiment_nums, labels, show_art):
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 
+    print(experiment_nums)
     labels = labels.split(",")
     if len(experiment_nums) != len(labels):
         raise Exception("Was given {} experiments and {} labels, these must match".format(len(experiment_nums),

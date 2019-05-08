@@ -21,21 +21,21 @@ def default_config():
     mdp_map = get_tile_map(mdp_num)
 
     gamma = 0.99
-    alpha = 5e-4
+    alpha = 5e-3
     beta1 = 0.9
     beta2 = 0.999999
 
     constraint_batch_size = None
 
-    q_n_layers = 4
+    q_n_layers = 1
     q_layer_size = 128
     q_activation = tf.nn.relu
     q_output_activation = None
-    target_update_freq = 20
+    target_update_freq = 25
 
 
     dyn_n_layers = 1
-    dyn_layer_size = 256
+    dyn_layer_size = 64
     dyn_activation = tf.nn.relu
     dyn_output_activation = None
 
@@ -54,14 +54,15 @@ def default_config():
 
 
     #weighted Config
-    batch_size = 200
-    n_training_iters = 200000
-    dyn_pretrain_iters = 10000
+    batch_size = 64
+    n_training_iters = 400000
+    dyn_pretrain_iters = 20000
     # Config made up of ['nall', 'ntll', 'tde', 'tde_sg_q', 'tde_sg_t']
-    losses = [0,1,4,5]
-    loss_weights = [1.0, 1.0, 100.0, 1.0]
+    losses = [0,4,7]
+    loss_weights = [1.0, 1.0, 1.0]
 
     tab_save_freq = 500
+    clip_global = True
 
     seed = 0
     gpu_num = 0
@@ -73,14 +74,15 @@ def default_config():
 def weighted_train(_run, mdp_map, gamma, alpha, beta1, beta2, constraint_batch_size, q_n_layers, q_layer_size, q_activation,
             q_output_activation, target_update_freq, dyn_n_layers, dyn_layer_size, dyn_activation, dyn_output_activation, boltz_beta, mellowmax,
             gamma_demo, temp_boltz_beta, n_demos, demo_time_steps, n_training_iters, dyn_pretrain_iters, batch_size,
-            losses, loss_weights, tab_save_freq, gpu_num, seed):
+            losses, loss_weights, tab_save_freq, clip_global, gpu_num, seed):
 
     os_setup(gpu_num)
     tf.reset_default_graph()
     data_dir = os.path.join('data', '1.1')
     # q_scope, dyn_scope = load_scopes(data_dir)
-    sess = tf.Session()
-
+    tf_config = tf.ConfigProto()
+    tf_config.gpu_options.allow_growth = True
+    sess = tf.Session(config=tf_config)
 
     mdp = get_mdp_from_map(mdp_map)
 
@@ -99,7 +101,8 @@ def weighted_train(_run, mdp_map, gamma, alpha, beta1, beta2, constraint_batch_s
                                     mellowmax=mellowmax, alpha=alpha, beta1=beta1, beta2=beta2, seed=seed) #, q_scope=q_scope, dyn_scope=dyn_scope)
 
         regime_params = {"losses": losses,
-                         'loss_weights':loss_weights}
+                         'loss_weights':loss_weights,
+                         'clip_global':clip_global}
 
         model.initialize_training_regime("weighted", regime_params=regime_params)
 

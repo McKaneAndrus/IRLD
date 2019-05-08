@@ -66,6 +66,7 @@ class MarsExplorerEnv(DiscreteEnv):
         self.texture_map = texture_map.flatten()
         # self.rewards = np.asarray(reward_map).flatten()
         self.rewards = reward_map.flatten()
+        self.max_reward = np.max(self.rewards)
         self.nrow, self.ncol = nrow, ncol = desc.shape
         self.penalty = time_penalty
         self.potential_goal_states = []
