@@ -4,7 +4,7 @@ from utils.soft_q_learning import tabsoftq_gen_pol, tabsoftq_learn_Qs, vectorize
 import random
 
 
-def clean_demos(sas_obs, max_noops=15):
+def clean_demos(sas_obs, max_noops):
     demo_example_idxes = list(range(len(sas_obs)))
     unique_stays, stay_count = set([]), 0
     for i,sas in enumerate(sas_obs):
@@ -21,7 +21,7 @@ def clean_demos(sas_obs, max_noops=15):
     return demo_example_idxes
 
 
-def get_demos(mdp, gamma, temp_boltz_beta, n_demos, demo_time_steps, seed=0):
+def get_demos(mdp, gamma, temp_boltz_beta, n_demos, demo_time_steps, seed=0, max_noops=50):
     np.random.seed(seed)
     random.seed(seed)
     exQs = tabsoftq_learn_Qs(mdp, gamma=gamma)
@@ -36,7 +36,7 @@ def get_demos(mdp, gamma, temp_boltz_beta, n_demos, demo_time_steps, seed=0):
 
     sas_obs, adt_obs = vectorize_rollouts(demos)
 
-    good_indexes = clean_demos(sas_obs)
+    good_indexes = clean_demos(sas_obs, max_noops)
     sas_obs, adt_obs = sas_obs[good_indexes], adt_obs[good_indexes]
     constraints = generate_constraints(mdp)
     nn_rollouts = nn_vectorize_rollouts(mdp, sas_obs, adt_obs)

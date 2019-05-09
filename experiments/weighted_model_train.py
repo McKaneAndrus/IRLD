@@ -31,14 +31,14 @@ def default_config():
     q_layer_size = 128
     q_activation = tf.nn.relu
     q_output_activation = None
-    q_layer_norm = True
+    q_layer_norm = False
     target_update_freq = 25
 
     dyn_n_layers = 1
     dyn_layer_size = 64
     dyn_activation = tf.nn.relu
     dyn_output_activation = None
-    dyn_layer_norm = True
+    dyn_layer_norm = False
 
     # Boltz-beta determines the "rationality" of the agent being modeled.
     # Setting it to higher values corresponds to "pure rationality"
@@ -60,7 +60,7 @@ def default_config():
     loss_weights = [1.0, 1.0, 0.01, 1.0]
 
     tab_save_freq = 500
-    clip_global = None
+    clip_global = 100
 
     seed = 0
     gpu_num = 0

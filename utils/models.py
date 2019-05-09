@@ -189,9 +189,9 @@ class InverseDynamicsLearner():
         #Experimental
         # self.best_ntll = 1.0
         # self.delta_ll_td_err = self.td_err * self.neg_avg_act_log_likelihood * tf.minimum(self.neg_avg_trans_log_likelihood - self.best_ntll, 1e-12)
-        self.lqsafer = self.neg_avg_act_log_likelihood / (1000 - self.td_err + 1/self.neg_avg_trans_log_likelihood)
+        self.lqsafer = self.neg_avg_act_log_likelihood / (1/self.td_err + 1/self.neg_avg_trans_log_likelihood)
         self.llt_weighted_td_err = self.td_err_sgq * self.neg_avg_trans_log_likelihood #(1 + self.td_err_sgq) * (1 + self.neg_avg_trans_log_likelihood) ** 5
-        self.lla_weighted_td_err = self.td_err * self.neg_avg_act_log_likelihood * self.neg_avg_trans_log_likelihood ** 5
+        self.lla_weighted_td_err = self.td_err * (self.neg_avg_act_log_likelihood + self.neg_avg_trans_log_likelihood)
         # self.td_err_weighted_ll = 1/(self.ll_weighted_td_err + 1e-8)
 
         # Set up target network
