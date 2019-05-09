@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 
 from sacred import Experiment
 from sacred.observers import FileStorageObserver
@@ -21,24 +22,34 @@ sns.set(style="darkgrid")
 
 
 
-def visualize_dynamics_diff(data, out_file):
+def visualize_dynamics_diff(data, out_file, plot_all):
 
     all_iters, all_models, true_dyns = data
-    plot_iters, observed_diffs, unobserved_diffs = [], [], []
+    plot_iters, observed_diffs, unobserved_diffs, experiment_i = [], [], [], []
     for i in range(len(all_iters)):
         iters, models, true_dyn = all_iters[i], all_models[i], true_dyns[i]
         observed_diffs += [np.linalg.norm(true_dyn[OBSERVED_TTS] - model[OBSERVED_TTS]) for model in models]
         unobserved_diffs += [np.linalg.norm(true_dyn[UNOBSERVED_TTS] - model[UNOBSERVED_TTS]) for model in models]
+        experiment_i += [i] * len(models)
         plot_iters += iters
 
-    plot = sns.lineplot(plot_iters, observed_diffs)
+    df = pd.DataFrame(data={
+        'observed_diffs': observed_diffs,
+        'unobserved_diffs': unobserved_diffs,
+        'experiment_i': experiment_i,
+        'step_num': plot_iters})
+
+    extra_kwargs = {}
+    if not plot_all:
+        extra_kwargs = {'units': 'experiment_i', 'estimator': None, 'hue': 'experiment_i'}
+    plot = sns.lineplot(x='step_num', y='observed_diffs', data=df, **extra_kwargs)
     fig = plot.get_figure()
     plt.title("Difference between Learned and True Observed Dynamics")
     plt.xlabel("Training Iterations")
     plt.ylabel("L2 Distance")
     fig.savefig(out_file+"_observed.png")
     plt.clf()
-    plot = sns.lineplot(plot_iters, unobserved_diffs)
+    plot = sns.lineplot(x='step_num', y='unobserved_diffs', data=df, **extra_kwargs)
     fig = plot.get_figure()
     plt.title("Difference between Learned and True Unobserved Dynamics")
     plt.ylabel("L2 Distance")
@@ -50,6 +61,7 @@ def visualize_dynamics_diff(data, out_file):
 @dynamics_diff_visualization.config
 def config():
     out_dir = "logs/generated_images_"
+    plot_all = True
 
     _ = locals()  # quieten flake8 unused variable warning
     del _
@@ -75,10 +87,10 @@ def load_dynamics(experiment_nums):
 
 
 @dynamics_diff_visualization.automain
-def main(out_dir, _run, experiment_nums):
+def main(out_dir, _run, experiment_nums, plot_all):
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 
     data = load_dynamics(experiment_nums)
     out_file = os.path.join(out_dir, "dynamics_diff_visualization_{}_from_{}".format(_run._id,  "_".join(str(x) for x in experiment_nums)))
-    visualize_dynamics_diff(data, out_file)
+    visualize_dynamics_diff(data, out_file, plot_all)
