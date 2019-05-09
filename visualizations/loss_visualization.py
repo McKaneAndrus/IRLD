@@ -44,32 +44,29 @@ def visualize_likelihood(data, out_file, plot_all):
     if not plot_all:
         extra_kwargs = {'units': 'experiment_nums', 'estimator': None, 'hue': 'experiment_nums'}
 
+    fig = plt.figure(figsize=(16, 16))
+    ax = plt.gca()
+    ax.set_axis_off()
+
+    fig.add_subplot(2, 2, 1)
     plot = sns.lineplot(x='step_num', y='joint_likelihoods', data=df, **extra_kwargs)
-    fig = plot.get_figure()
     plt.title("Validation Joint Negative Log-Likelihood")
     plt.xlabel("Training Iterations")
     plt.ylabel("Negative Log-Likelihood")
-    fig.savefig(out_file + '_joint.png')
-    plt.clf()
 
+    fig.add_subplot(2, 2, 2)
     plot = sns.lineplot(x='step_num', y='ntlls', data=df, **extra_kwargs)
-    fig = plot.get_figure()
     plt.title("Validation Transition Negative Log-Likelihood")
     plt.xlabel("Training Iterations")
     plt.ylabel("Negative Log-Likelihood")
-    fig.savefig(out_file + '_ntll.png')
-    plt.clf()
 
+    fig.add_subplot(2, 2, 3)
     plot = sns.lineplot(x='step_num', y='nalls', data=df, **extra_kwargs)
-    fig = plot.get_figure()
     plt.title("Validation Action Negative Log-Likelihood")
     plt.xlabel("Training Iterations")
     plt.ylabel("Negative Log-Likelihood")
-    fig.savefig(out_file + '_nall.png')
-    plt.clf()
 
-
-
+    plt.savefig(out_file + '_all.png')
 
 
 
