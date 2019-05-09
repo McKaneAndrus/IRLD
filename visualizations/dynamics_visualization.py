@@ -96,8 +96,8 @@ def visualize_dynamics(data, alg_labels, tile_labels, out_file='tmp.png', fig_wi
 def config():
     fig_width = 8
     margin = .1
-    alg_labels = "Experiment"
-    tile_labels = "0,1"
+    alg_labels = ["Experiment"]
+    tile_labels = ['0','1']
     out_dir = "logs/generated_images_"
 
     _ = locals()  # quieten flake8 unused variable warning
@@ -117,8 +117,8 @@ def main(out_dir, _run, experiment_nums, alg_labels, tile_labels, fig_width, mar
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 
-    alg_labels = alg_labels.split(",")
-    tile_labels = tile_labels.split(",")
+    # alg_labels = alg_labels.split(",")
+    # tile_labels = tile_labels.split(",")
     if len(experiment_nums) != len(alg_labels):
         raise Exception("Was given {} experiments and {} alg labels, these must match".format(len(experiment_nums),
                                                                                                len(alg_labels)))
