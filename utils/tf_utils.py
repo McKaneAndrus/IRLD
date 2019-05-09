@@ -31,5 +31,6 @@ def build_mlp(
     with tf.variable_scope(scope, reuse=reuse):
         for _ in range(n_layers):
             out = tf.layers.dense(out, size, activation=activation)
+            out = tf.contrib.layers.layer_norm(out)
         out = tf.layers.dense(out, output_size, activation=output_activation)
     return out

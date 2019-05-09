@@ -54,12 +54,12 @@ def default_config():
 
 
     #weighted Config
-    batch_size = 64
-    n_training_iters = 400000
+    batch_size = 256
+    n_training_iters = 200000
     dyn_pretrain_iters = 20000
     # Config made up of ['nall', 'ntll', 'tde', 'tde_sg_q', 'tde_sg_t']
-    losses = [0,4,7]
-    loss_weights = [1.0, 1.0, 1.0]
+    losses = [0,1,3,4]
+    loss_weights = [1.0, 1.0, .01, 1.0]
 
     tab_save_freq = 500
     clip_global = True
