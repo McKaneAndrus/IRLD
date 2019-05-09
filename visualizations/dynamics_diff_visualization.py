@@ -16,7 +16,7 @@ OBSERVED_TTS = 0
 UNOBSERVED_TTS = 1
 
 dynamics_diff_visualization = Experiment('dynamics_diff_visualization')
-dynamics_diff_visualization.observers.append(FileStorageObserver.create('logs/sacred'))
+dynamics_diff_visualization.observers.append(FileStorageObserver.create('logs/sacred/viz'))
 sns.set(style="darkgrid")
 
 
@@ -92,5 +92,5 @@ def main(out_dir, _run, experiment_nums, plot_all):
         os.makedirs(out_dir)
 
     data = load_dynamics(experiment_nums)
-    out_file = os.path.join(out_dir, "dynamics_diff_visualization_{}_from_{}".format(_run._id,  "_".join(str(x) for x in experiment_nums)))
+    out_file = os.path.join(out_dir, "{}_dynamics_diff_visualization_from_{}".format("_".join(str(x) for x in experiment_nums), _run._id))
     visualize_dynamics_diff(data, out_file, plot_all)

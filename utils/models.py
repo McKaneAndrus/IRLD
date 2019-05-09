@@ -36,11 +36,14 @@ class InverseDynamicsLearner():
         dyn_layer_size = mlp_params.get('dyn_layer_size', 256)
         dyn_layer_activation = mlp_params.get('dyn_layer_activation', tf.nn.relu)
         dyn_output_activation = mlp_params.get('dyn_output_activation', None)
+        dyn_layer_norm = mlp_params.get('dyn_layer_norm', False)
 
         q_n_layers = mlp_params.get('q_n_layers', 2)
         q_layer_size = mlp_params.get('q_layer_size', 2048)
         q_layer_activation = mlp_params.get('q_layer_activation', tf.nn.tanh)
         q_output_activation = mlp_params.get('q_output_activation', None)
+        q_layer_norm = mlp_params.get('q_layer_norm', False)
+
 
         self.demo_tile_t_ph = tf.placeholder(tf.int32, [None, 1], name="dtt")
         self.demo_act_t_ph = tf.placeholder(tf.int32, [None, 1], name="dat")
@@ -65,7 +68,8 @@ class InverseDynamicsLearner():
         demo_q_t = build_mlp(self.demo_obs_t_feats_ph,
                              n_act_dim, q_scope,
                              n_layers=q_n_layers, size=q_layer_size,
-                             activation=q_layer_activation, output_activation=q_output_activation) * boltz_beta
+                             activation=q_layer_activation, output_activation=q_output_activation,
+                             layer_norm=q_layer_norm) * boltz_beta
 
         demo_v_t = tf.reduce_logsumexp(demo_q_t, axis=1)
 
@@ -88,13 +92,15 @@ class InverseDynamicsLearner():
                 tf.concat((self.demo_act_t_ph, demo_tile_t_one_hot), axis=1),
                 n_dirs, dyn_scope,
                 n_layers=dyn_n_layers, size=dyn_layer_size,
-                activation=dyn_layer_activation, output_activation=dyn_output_activation)
+                activation=dyn_layer_activation, output_activation=dyn_output_activation,
+                layer_norm=dyn_layer_norm)
         else:
             self.pred_obs = build_mlp(
                 tf.concat((demo_tile_t_one_hot, self.demo_act_t_ph), axis=1),
                 n_dirs, dyn_scope,
                 n_layers=dyn_n_layers, size=dyn_layer_size,
-                activation=dyn_layer_activation, output_activation=dyn_output_activation)
+                activation=dyn_layer_activation, output_activation=dyn_output_activation,
+                layer_norm=dyn_layer_norm)
 
 
         trans_log_likelihoods = tf.gather_nd(self.pred_obs, dir_indexes) - tf.reduce_logsumexp(self.pred_obs, axis=1)
@@ -109,7 +115,7 @@ class InverseDynamicsLearner():
                                     n_act_dim, q_scope,
                                     n_layers=q_n_layers, size=q_layer_size,
                                     activation=q_layer_activation, output_activation=q_output_activation,
-                                    reuse=True)
+                                    layer_norm=q_layer_norm, reuse=True)
 
         constraint_q_t = tf.gather_nd(self.constraint_qs_t, ca_indexes)
 
@@ -120,14 +126,14 @@ class InverseDynamicsLearner():
                 n_dirs, dyn_scope,
                 n_layers=dyn_n_layers, size=dyn_layer_size,
                 activation=dyn_layer_activation, output_activation=dyn_output_activation,
-                reuse=True)
+                layer_norm=dyn_layer_norm, reuse=True)
         else:
             constraint_pred_obs = build_mlp(
                 tf.concat((self.constraint_obs_t_feats_ph, self.constraint_act_t_ph), axis=1),
                 n_dirs, dyn_scope,
                 n_layers=dyn_n_layers, size=dyn_layer_size,
                 activation=dyn_layer_activation, output_activation=dyn_output_activation,
-                reuse=True)
+                layer_norm=dyn_layer_norm, reuse=True)
 
         constraint_sprimes_reshaped = tf.reshape(self.constraint_next_obs_t_feats_ph,
                                                  (self.constraint_batch_size_ph * n_dirs, n_obs_feats))
@@ -137,7 +143,7 @@ class InverseDynamicsLearner():
                                     n_act_dim, scope="target",
                                     n_layers=q_n_layers, size=q_layer_size,
                                     activation=q_layer_activation, output_activation=q_output_activation,
-                                    reuse=False)
+                                    layer_norm=q_layer_norm, reuse=False)
 
         constraint_q_tp1 = tf.reshape(tf.stop_gradient(cqtp1_misshaped), (self.constraint_batch_size_ph, n_dirs, n_act_dim))
 
@@ -184,7 +190,7 @@ class InverseDynamicsLearner():
         # self.best_ntll = 1.0
         # self.delta_ll_td_err = self.td_err * self.neg_avg_act_log_likelihood * tf.minimum(self.neg_avg_trans_log_likelihood - self.best_ntll, 1e-12)
         self.lqsafer = self.neg_avg_act_log_likelihood / (1000 - self.td_err + 1/self.neg_avg_trans_log_likelihood)
-        self.llt_weighted_td_err = self.td_err_sgq * self.neg_avg_trans_log_likelihood ** 5
+        self.llt_weighted_td_err = self.td_err_sgq * self.neg_avg_trans_log_likelihood #(1 + self.td_err_sgq) * (1 + self.neg_avg_trans_log_likelihood) ** 5
         self.lla_weighted_td_err = self.td_err * self.neg_avg_act_log_likelihood * self.neg_avg_trans_log_likelihood ** 5
         # self.td_err_weighted_ll = 1/(self.ll_weighted_td_err + 1e-8)
 
@@ -203,7 +209,7 @@ class InverseDynamicsLearner():
                                     n_act_dim, q_scope,
                                     n_layers=q_n_layers, size=q_layer_size,
                                     activation=q_layer_activation, output_activation=q_output_activation,
-                                    reuse=True)
+                                    layer_norm=q_layer_norm, reuse=True)
         self.true_q_err = tf.reduce_sum((self.true_qs_ph - self.test_qs_t)**2)
 
         self.loss_fns = np.array([self.neg_avg_act_log_likelihood, self.neg_avg_trans_log_likelihood,
@@ -233,10 +239,10 @@ class InverseDynamicsLearner():
             self.weighted_loss = sum([self.loss_fns[losses[i]] * loss_weights[i] for i in range(len(losses))])
             self.log_losses = np.append(self.log_losses, [self.weighted_loss])
             self.log_loss_titles = np.append(self.log_loss_titles, ["weighted_loss"])
-            if regime_params['clip_global']:
+            if regime_params['clip_global'] is not None:
                 optimizer = tf.train.AdamOptimizer(self.alpha, self.beta1, self.beta2)
                 gradients, variables = zip(*optimizer.compute_gradients(self.weighted_loss))
-                gradients, _ = tf.clip_by_global_norm(gradients, 5.0)
+                gradients, _ = tf.clip_by_global_norm(gradients, regime_params['clip_global'])
                 self.update = [optimizer.apply_gradients(zip(gradients, variables))]
             else:
                 self.update = tf.train.AdamOptimizer(self.alpha, self.beta1, self.beta2).minimize(self.weighted_loss)
@@ -252,12 +258,12 @@ class InverseDynamicsLearner():
             # Update progression is a list of list of ints in the range(len(self.loss_fns))
             self.loss_progression = [sum(self.loss_fns[config]) for config in regime_params["update_progression"]]
             #TODO Check for equivalent losses
-            if regime_params['clip_global']:
+            if regime_params['clip_global'] is not None:
                 self.update_progression = []
                 for i,loss in enumerate(self.loss_progression):
                     optimizer = tf.train.AdamOptimizer(self.alpha, self.beta1, self.beta2)
                     gradients, variables = zip(*optimizer.compute_gradients(loss))
-                    gradients, _ = tf.clip_by_global_norm(gradients, 5.0)
+                    gradients, _ = tf.clip_by_global_norm(gradients, regime_params['clip_global'])
                     self.update_progression += [optimizer.apply_gradients(zip(gradients, variables))]
                 else:
                     self.update_progression = [tf.train.AdamOptimizer(self.alphas[i], self.beta1, self.beta2).minimize(

@@ -31,20 +31,19 @@ def default_config():
     q_layer_size = 128
     q_activation = tf.nn.relu
     q_output_activation = None
+    q_layer_norm = True
     target_update_freq = 25
-
 
     dyn_n_layers = 1
     dyn_layer_size = 64
     dyn_activation = tf.nn.relu
     dyn_output_activation = None
-
+    dyn_layer_norm = True
 
     # Boltz-beta determines the "rationality" of the agent being modeled.
     # Setting it to higher values corresponds to "pure rationality"
     boltz_beta = 50
     mellowmax = None
-
 
     #DEMO Config
     gamma_demo = 0.99
@@ -52,17 +51,16 @@ def default_config():
     demo_time_steps = 40
     temp_boltz_beta = 50
 
-
     #weighted Config
-    batch_size = 64
-    n_training_iters = 400000
+    batch_size = 256
+    n_training_iters = 200000
     dyn_pretrain_iters = 20000
     # Config made up of ['nall', 'ntll', 'tde', 'tde_sg_q', 'tde_sg_t']
-    losses = [0,4,7]
-    loss_weights = [1.0, 1.0, 1.0]
+    losses = [0,1,3,4]
+    loss_weights = [1.0, 1.0, 0.01, 1.0]
 
     tab_save_freq = 500
-    clip_global = True
+    clip_global = None
 
     seed = 0
     gpu_num = 0
@@ -72,9 +70,10 @@ def default_config():
 
 @weighted_model_train_ex.automain
 def weighted_train(_run, mdp_map, gamma, alpha, beta1, beta2, constraint_batch_size, q_n_layers, q_layer_size, q_activation,
-            q_output_activation, target_update_freq, dyn_n_layers, dyn_layer_size, dyn_activation, dyn_output_activation, boltz_beta, mellowmax,
-            gamma_demo, temp_boltz_beta, n_demos, demo_time_steps, n_training_iters, dyn_pretrain_iters, batch_size,
-            losses, loss_weights, tab_save_freq, clip_global, gpu_num, seed):
+            q_output_activation, q_layer_norm, target_update_freq, dyn_n_layers, dyn_layer_size, dyn_activation,
+            dyn_output_activation, dyn_layer_norm, boltz_beta, mellowmax, gamma_demo, temp_boltz_beta, n_demos,
+            demo_time_steps, n_training_iters, dyn_pretrain_iters, batch_size, losses, loss_weights, tab_save_freq,
+            clip_global, gpu_num, seed):
 
     os_setup(gpu_num)
     tf.reset_default_graph()
@@ -91,10 +90,12 @@ def weighted_train(_run, mdp_map, gamma, alpha, beta1, beta2, constraint_batch_s
                   'q_layer_size':q_layer_size,
                   'q_activation': q_activation,
                   'q_output_activation':q_output_activation,
+                  'q_layer_norm':q_layer_norm,
                   'dyn_n_layers':dyn_n_layers,
                   'dyn_layer_size':dyn_layer_size,
                   'dyn_activation':dyn_activation,
-                  'dyn_output_activation':dyn_output_activation}
+                  'dyn_output_activation':dyn_output_activation,
+                  'dyn_layer_norm': dyn_layer_norm}
 
     with sess.as_default():
         model = InverseDynamicsLearner(mdp, sess, mlp_params=mlp_params, boltz_beta=boltz_beta, gamma=gamma,

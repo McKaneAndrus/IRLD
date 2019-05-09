@@ -30,13 +30,15 @@ def default_config():
     q_layer_size = 128
     q_activation = tf.nn.relu
     q_output_activation = None
-    target_update_freq = 50
+    q_layer_norm = True
+    target_update_freq = 25
 
 
     dyn_n_layers = 1
     dyn_layer_size = 64
     dyn_activation = tf.nn.relu
     dyn_output_activation = None
+    dyn_layer_norm = True
 
 
     # Boltz-beta determines the "rationality" of the agent being modeled.
@@ -65,9 +67,9 @@ def default_config():
 
 @mgda_model_train_ex.automain
 def mgda_train(_run, mdp_map, gamma, alpha, beta1, beta2, constraint_batch_size, q_n_layers, q_layer_size, q_activation,
-            q_output_activation, target_update_freq, dyn_n_layers, dyn_layer_size, dyn_activation, dyn_output_activation, boltz_beta, mellowmax,
-            gamma_demo, temp_boltz_beta, n_demos, demo_time_steps, n_training_iters, dyn_pretrain_iters, batch_size,
-            loss_configurations, tab_save_freq, seed, gpu_num):
+            q_output_activation, q_layer_norm, target_update_freq, dyn_n_layers, dyn_layer_size, dyn_activation,
+            dyn_output_activation, dyn_layer_norm, boltz_beta, mellowmax, gamma_demo, temp_boltz_beta, n_demos,
+            demo_time_steps, n_training_iters, dyn_pretrain_iters, batch_size, loss_configurations, tab_save_freq, seed, gpu_num):
 
     os_setup(gpu_num)
     tf.reset_default_graph()
@@ -82,10 +84,12 @@ def mgda_train(_run, mdp_map, gamma, alpha, beta1, beta2, constraint_batch_size,
                   'q_layer_size':q_layer_size,
                   'q_activation': q_activation,
                   'q_output_activation':q_output_activation,
+                  'q_layer_norm':q_layer_norm,
                   'dyn_n_layers':dyn_n_layers,
                   'dyn_layer_size':dyn_layer_size,
                   'dyn_activation':dyn_activation,
-                  'dyn_output_activation':dyn_output_activation}
+                  'dyn_output_activation':dyn_output_activation,
+                  'dyn_layer_norm': dyn_layer_norm}
 
     model = InverseDynamicsLearner(mdp, sess, mlp_params=mlp_params, boltz_beta=boltz_beta, gamma=gamma,
                                 mellowmax=mellowmax, alpha=alpha, beta1=beta1, beta2=beta2, seed=seed) #, q_scope=q_scope, dyn_scope=dyn_scope)

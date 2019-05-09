@@ -12,7 +12,7 @@ import pickle as pkl
 import os
 
 dynamics_visualization = Experiment('dynamics_visualization')
-dynamics_visualization.observers.append(FileStorageObserver.create('logs/sacred'))
+dynamics_visualization.observers.append(FileStorageObserver.create('logs/sacred/viz'))
 
 
 def add_boxed_text(x, y, width, height, label, fill_color, plt, ax, font_size=25):

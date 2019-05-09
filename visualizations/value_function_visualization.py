@@ -15,7 +15,7 @@ import pickle as pkl
 import os
 
 value_function_visualization = Experiment('value_function_visualization')
-value_function_visualization.observers.append(FileStorageObserver.create('logs/sacred'))
+value_function_visualization.observers.append(FileStorageObserver.create('logs/sacred/viz'))
 
 
 MAP_COLORS = {b'F': "#ffffff", # Normal Square

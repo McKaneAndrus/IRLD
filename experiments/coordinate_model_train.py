@@ -32,12 +32,15 @@ def default_config():
     q_layer_size = 128
     q_activation = tf.nn.relu
     q_output_activation = None
-    target_update_freq = 50
+    q_layer_norm = True
+    target_update_freq = 25
+
 
     dyn_n_layers = 1
     dyn_layer_size = 64
     dyn_activation = tf.nn.relu
     dyn_output_activation = None
+    dyn_layer_norm = True
 
 
     # Boltz-beta determines the "rationality" of the agent being modeled.
@@ -54,18 +57,18 @@ def default_config():
 
 
     #Coordinate Config
-    batch_size = 64
-    n_training_iters = 500000
+    batch_size = 256
+    n_training_iters = 150000
     dyn_pretrain_iters = 20000
-    horizon = 2000
-    alphas = [5e-3, 1e-3] #[1e-4, 1e-4,1e-2,1e-4]
-    improvement_proportions = [0.1, -np.inf] #[0.1, -1, 0.1]
+    horizon = 1000
+    alphas = [2e-4, 5e-3, 5e-3] #[1e-4, 1e-4,1e-2,1e-4]
+    improvement_proportions = [-np.inf, -np.inf, 0.25] #[0.1, -1, 0.1]
     switch_frequency = 500
     # Config made up of ['nall', 'ntll', 'tde', 'tde_sg_q', 'tde_sg_t']
     initial_update = None
-    update_progression = [[1,4], [0,3]] #[[0],[5],[4],[7]] #[[4],[0,4,5]]
+    update_progression = [[0],[7],[4]] #[[0],[5],[4],[7]] #[[4],[0,4,5]]
     # update_weights = [[1.],[1.],[10000,1.]]
-    model_save_weights = [1.0, 1.0, 1.0, 0.0, 0.0, 0.0]
+    model_save_weights = [0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
 
     tab_save_freq = 200
     clip_global = True
@@ -78,10 +81,10 @@ def default_config():
 
 @coordinate_model_train_ex.automain
 def coordinate_train(_run, mdp_map, gamma, alpha, beta1, beta2, constraint_batch_size, q_n_layers, q_layer_size, q_activation,
-            q_output_activation, target_update_freq, dyn_n_layers, dyn_layer_size, dyn_activation, dyn_output_activation, boltz_beta, mellowmax,
-            gamma_demo, temp_boltz_beta, n_demos, demo_time_steps, n_training_iters, dyn_pretrain_iters, batch_size,
-            horizon, alphas, improvement_proportions, switch_frequency, initial_update, update_progression, model_save_weights, tab_save_freq,
-            clip_global, gpu_num, seed):
+            q_output_activation, q_layer_norm, target_update_freq, dyn_n_layers, dyn_layer_size, dyn_activation,
+            dyn_output_activation, dyn_layer_norm, boltz_beta, mellowmax, gamma_demo, temp_boltz_beta, n_demos,
+            demo_time_steps, n_training_iters, dyn_pretrain_iters, batch_size, horizon, alphas, improvement_proportions,
+            switch_frequency, initial_update, update_progression, model_save_weights, tab_save_freq, clip_global, gpu_num, seed):
 
     os_setup(gpu_num)
     tf.reset_default_graph()
@@ -99,14 +102,17 @@ def coordinate_train(_run, mdp_map, gamma, alpha, beta1, beta2, constraint_batch
                   'q_layer_size':q_layer_size,
                   'q_activation': q_activation,
                   'q_output_activation':q_output_activation,
+                  'q_layer_norm':q_layer_norm,
                   'dyn_n_layers':dyn_n_layers,
                   'dyn_layer_size':dyn_layer_size,
                   'dyn_activation':dyn_activation,
-                  'dyn_output_activation':dyn_output_activation}
+                  'dyn_output_activation':dyn_output_activation,
+                  'dyn_layer_norm': dyn_layer_norm}
 
     with sess.as_default():
         model = InverseDynamicsLearner(mdp, sess, mlp_params=mlp_params, boltz_beta=boltz_beta, gamma=gamma,
-                                       mellowmax=mellowmax, alpha=alpha, beta1=beta1, beta2=beta2, seed=seed) #, q_scope=q_scope, dyn_scope=dyn_scope)
+                                       mellowmax=mellowmax, alpha=alpha, beta1=beta1, beta2=beta2, seed=seed)
+                                                                    #, q_scope=q_scope, dyn_scope=dyn_scope)
 
         regime_params = {"horizon": horizon,
                          'improvement_proportions':improvement_proportions,

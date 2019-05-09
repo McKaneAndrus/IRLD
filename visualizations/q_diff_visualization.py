@@ -8,26 +8,38 @@ import os
 
 import seaborn as sns
 import matplotlib.pyplot as plt
+import pandas as pd
 
 import glob
 
 
 q_diff_visualization = Experiment('q_diff_visualization')
-q_diff_visualization.observers.append(FileStorageObserver.create('logs/sacred'))
+q_diff_visualization.observers.append(FileStorageObserver.create('logs/sacred/viz'))
 sns.set(style="darkgrid")
 
 
 
 
-def visualize_q_diff(data, out_file):
+def visualize_q_diff(data, out_file, plot_all):
     all_iters, all_models, true_qs = data
-    plot_iters, q_diffs = [], []
+    plot_iters, q_diffs, experiment_i = [], [], []
     print(all_models[0][-1], true_qs[0])
     for i in range(len(all_iters)):
         iters, models, true_q = all_iters[i], all_models[i], true_qs[i]
         q_diffs += [np.linalg.norm(true_q - model) for model in models]
         plot_iters += iters
-    plot = sns.lineplot(plot_iters, q_diffs)
+        experiment_i += [i] * len(models)
+
+    df = pd.DataFrame(data={
+        'q_diffs': q_diffs,
+        'experiment_i': experiment_i,
+        'step_num': plot_iters})
+
+    extra_kwargs = {}
+    if not plot_all:
+        extra_kwargs = {'units': 'experiment_i', 'estimator': None, 'hue': 'experiment_i'}
+
+    plot = sns.lineplot(x='step_num', y='q_diffs', data=df, **extra_kwargs)
     fig = plot.get_figure()
     plt.title("Difference between Learned and True Q-Values")
     plt.xlabel("Training Iterations")
@@ -39,6 +51,7 @@ def visualize_q_diff(data, out_file):
 @q_diff_visualization.config
 def config():
     out_dir = "logs/generated_images_"
+    plot_all = True
 
     _ = locals()  # quieten flake8 unused variable warning
     del _
@@ -64,10 +77,10 @@ def load_qs(experiment_nums):
 
 
 @q_diff_visualization.automain
-def main(out_dir, _run, experiment_nums):
+def main(out_dir, _run, experiment_nums, plot_all):
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 
     data = load_qs(experiment_nums)
-    out_file = os.path.join(out_dir, "q_diff_visualization_{}_from_{}.png".format(_run._id,  "_".join(str(x) for x in experiment_nums)))
-    visualize_q_diff(data, out_file)
+    out_file = os.path.join(out_dir, "{}_q_diff_visualization_from_{}.png".format( "_".join(str(x) for x in experiment_nums), _run._id))
+    visualize_q_diff(data, out_file, plot_all)
