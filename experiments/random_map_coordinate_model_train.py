@@ -1,6 +1,6 @@
 from sacred import Experiment
 from sacred.observers import FileStorageObserver
-from experiments.coordinate_model_train import coordinate_model_train_ex, coordinate_train
+from experiments.coordinate_model_train import coordinate_model_train_ex, concise_boi
 from envs.mars_map_gen import make_map
 
 random_map_coordinate_model_train_ex = Experiment("random_map_coordinate_model_train", ingredients=[coordinate_model_train_ex])

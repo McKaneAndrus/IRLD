@@ -70,7 +70,7 @@ def default_config():
     # update_weights = [[1.],[1.],[10000,1.]]
     model_save_weights = [1.0, 1.0, 1.0, 0.0, 0.0, 0.0]
 
-    tab_save_freq = 200
+    tab_save_freq = 250
     clip_global = True
 
     seed = 0
@@ -95,7 +95,7 @@ def concise_boi():
     dyn_layer_norm = False
     q_layer_norm = False
 
-    horizon=2000
+    horizon=2500
     alphas = [5e-3, 1e-3, 5e-3]
     improvement_proportions = [-np.inf, -np.inf, 0.5]  # [0.1, -1, 0.1]
     # Config made up of ['nall', 'ntll', 'tde', 'tde_sg_q', 'tde_sg_t']
@@ -108,7 +108,7 @@ def safer_concise_boi():
     dyn_layer_norm = False
     q_layer_norm = False
 
-    horizon=2000
+    horizon=2500
     alphas = [5e-3, 1e-3, 5e-3]
     improvement_proportions = [-np.inf, -np.inf, 0.5]  # [0.1, -1, 0.1]
     # Config made up of ['nall', 'ntll', 'tde', 'tde_sg_q', 'tde_sg_t']

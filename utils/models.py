@@ -257,6 +257,7 @@ class InverseDynamicsLearner():
             self.model_save_loss = sum(self.log_losses * np.array(regime_params["model_save_weights"]))
             # Update progression is a list of list of ints in the range(len(self.loss_fns))
             self.loss_progression = [sum(self.loss_fns[config]) for config in regime_params["update_progression"]]
+            self.loss_progression_titles = [" ".join(self.loss_fns_titles[config]) for config in regime_params["update_progression"]]
             #TODO Check for equivalent losses
             if regime_params['clip_global'] is not None:
                 self.update_progression = []
@@ -436,6 +437,8 @@ class InverseDynamicsLearner():
                     adt_probs = adt_probs.reshape(self.mdp.tile_types, self.mdp.num_actions, self.mdp.num_directions)
                     pkl.dump(q_vals, open(os.path.join(tab_model_out_dir, 'q_vals_{}.pkl'.format(train_time)), 'wb'))
                     pkl.dump(adt_probs, open(os.path.join(tab_model_out_dir, 'adt_probs_{}.pkl'.format(train_time)), 'wb'))
+                    if self.regime == "coordinate":
+                        _run.log_scalar("coordinate_regime", self.loss_progression_titles[self.curr_update_index], train_time)
 
                 # Check for update_switching
                 if self.regime == "coordinate" and train_time % self.switch_frequency and self._update_switcher(total_loss):
