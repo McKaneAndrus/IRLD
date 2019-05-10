@@ -13,6 +13,8 @@ import numpy as np
 
 coordinate_model_train_ex = Experiment("coordinate_model_train")
 coordinate_model_train_ex.observers.append(FileStorageObserver.create('logs/sacred'))
+coordinate_model_train_ex.add_source_file('utils/models.py')
+coordinate_model_train_ex.add_source_file('utils/demos_utils.py')
 
 
 @coordinate_model_train_ex.config
@@ -32,7 +34,7 @@ def default_config():
     q_layer_size = 128
     q_activation = tf.nn.relu
     q_output_activation = None
-    q_layer_norm = True
+    q_layer_norm = False
     target_update_freq = 25
 
 
@@ -40,7 +42,7 @@ def default_config():
     dyn_layer_size = 64
     dyn_activation = tf.nn.relu
     dyn_output_activation = None
-    dyn_layer_norm = True
+    dyn_layer_norm = False
 
 
     # Boltz-beta determines the "rationality" of the agent being modeled.
@@ -60,21 +62,48 @@ def default_config():
     batch_size = 256
     n_training_iters = 150000
     dyn_pretrain_iters = 20000
-    horizon = 1000
-    alphas = [2e-4, 5e-3, 5e-3] #[1e-4, 1e-4,1e-2,1e-4]
-    improvement_proportions = [-np.inf, -np.inf, 0.25] #[0.1, -1, 0.1]
+    horizon = 5000
+    alphas = [5e-3, 5e-3] #[1e-4, 1e-4,1e-2,1e-4]
+    improvement_proportions = [-np.inf, -np.inf] #[0.1, -1, 0.1]
     switch_frequency = 500
     # Config made up of ['nall', 'ntll', 'tde', 'tde_sg_q', 'tde_sg_t']
     initial_update = None
-    update_progression = [[0],[7],[4]] #[[0],[5],[4],[7]] #[[4],[0,4,5]]
+    update_progression = [[0,1,4],[5,4]] #[[0],[5],[4],[7]] #[[4],[0,4,5]]
     # update_weights = [[1.],[1.],[10000,1.]]
-    model_save_weights = [0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
+    model_save_weights = [1.0, 1.0, 1.0, 0.0, 0.0, 0.0]
 
     tab_save_freq = 200
     clip_global = True
 
     seed = 0
     gpu_num = 0
+
+@coordinate_model_train_ex.named_config
+def concise_boi():
+
+    dyn_layer_norm = False
+    q_layer_norm = False
+
+    horizon=2000
+    alphas = [5e-3, 1e-3, 5e-3]
+    improvement_proportions = [-np.inf, -np.inf, 0.5]  # [0.1, -1, 0.1]
+    # Config made up of ['nall', 'ntll', 'tde', 'tde_sg_q', 'tde_sg_t']
+    update_progression = [[0], [5], [4]]  # [[0],[5],[4],[7]] #[[4],[0,4,5]]
+    model_save_weights = [0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
+
+@coordinate_model_train_ex.named_config
+def safer_concise_boi():
+
+    dyn_layer_norm = False
+    q_layer_norm = False
+
+    horizon=2000
+    alphas = [5e-3, 1e-3, 5e-3]
+    improvement_proportions = [-np.inf, -np.inf, 0.5]  # [0.1, -1, 0.1]
+    # Config made up of ['nall', 'ntll', 'tde', 'tde_sg_q', 'tde_sg_t']
+    update_progression = [[0, 6], [5], [4]]  # [[0],[5],[4],[7]] #[[4],[0,4,5]]
+    model_save_weights = [0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
+
 
 
 

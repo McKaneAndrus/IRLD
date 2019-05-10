@@ -12,6 +12,9 @@ from envs.mars_map_gen import make_map, get_mdp_from_map
 
 weighted_model_train_ex = Experiment("weighted_model_train")
 weighted_model_train_ex.observers.append(FileStorageObserver.create('logs/sacred'))
+weighted_model_train_ex.add_source_file('utils/models.py')
+weighted_model_train_ex.add_source_file('utils/demos_utils.py')
+
 
 
 @weighted_model_train_ex.config
@@ -57,13 +60,22 @@ def default_config():
     dyn_pretrain_iters = 20000
     # Config made up of ['nall', 'ntll', 'tde', 'tde_sg_q', 'tde_sg_t']
     losses = [0,1,3,4]
-    loss_weights = [1.0, 1.0, 0.01, 1.0]
+    loss_weights = [1.0, 1.0, 0.05, 1.0]
 
     tab_save_freq = 500
     clip_global = 100
 
     seed = 0
     gpu_num = 0
+
+@weighted_model_train_ex.named_config
+def temperamental_boi():
+
+    dyn_layer_norm = False
+    q_layer_norm = False
+    alpha = 5e-3
+    losses = [0,1,3,4]
+    loss_weights = [1.0, 1.0, 0.05, 1.0]
 
 
 

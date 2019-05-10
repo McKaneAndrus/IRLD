@@ -12,6 +12,8 @@ from utils.models import InverseDynamicsLearner
 
 mgda_model_train_ex = Experiment("mgda_model_train")
 mgda_model_train_ex.observers.append(FileStorageObserver.create('logs/sacred'))
+mgda_model_train_ex.add_source_file('utils/models.py')
+mgda_model_train_ex.add_source_file('utils/demos_utils.py')
 
 
 @mgda_model_train_ex.config
@@ -58,7 +60,7 @@ def default_config():
     dyn_pretrain_iters = 10000
 
 
-    loss_configurations = [[1,4],[0,3]]
+    loss_configurations = [[1,4],[6,5]]
 
     tab_save_freq = 200
     seed = 0
