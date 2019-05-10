@@ -74,6 +74,7 @@ def default_config():
     clip_global = True
 
     seed = 0
+    map_seed = 1
     gpu_num = 0
 
     random_mdp = True
@@ -84,7 +85,7 @@ def default_config():
     mdp_num = 0
 
     if random_mdp:
-        mdp_map = make_map(map_height, map_width, clustering_iterations, seed)
+        mdp_map = make_map(map_height, map_width, clustering_iterations, map_seed)
     else:
         mdp_map = get_tile_map(mdp_num)
 

@@ -23,7 +23,7 @@ TILE_PROXIMITY_BOOST = {'F':0.5,
 DEFAULT_WEIGHT = 1.0
 
 def make_map(height, width, clustering_iterations = 0, seed=0):
-
+    random_state = np.random.get_state()
     np.random.seed(seed)
     total = float(height * width)
     tile_map = np.random.choice(TILE_TYPES, size=(height, width))
@@ -70,6 +70,7 @@ def make_map(height, width, clustering_iterations = 0, seed=0):
     #print(tile_proportions)
     #print(tile_map)
     string_tile_map = ["".join(row) for row in tile_map]
+    np.random.set_state(random_state)
     return string_tile_map
 
 def make_maps(height, width, n_maps, output_dir=None, clustering_iterations=0, seed=0):
