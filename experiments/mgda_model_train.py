@@ -9,6 +9,8 @@ from envs.mars_map_gen import get_mdp_from_map
 from utils.demos_utils import get_demos
 from utils.experiment_utils import current_milli_time
 from utils.models import InverseDynamicsLearner
+from envs.mars_map_gen import make_map, get_mdp_from_map
+
 
 mgda_model_train_ex = Experiment("mgda_model_train")
 mgda_model_train_ex.observers.append(FileStorageObserver.create('logs/sacred'))
@@ -18,8 +20,6 @@ mgda_model_train_ex.add_source_file('utils/demos_utils.py')
 
 @mgda_model_train_ex.config
 def default_config():
-    mdp_num = 0
-    mdp_map = get_tile_map(mdp_num)
 
     gamma = 0.99
     alpha = 1e-3
@@ -63,6 +63,18 @@ def default_config():
     loss_configurations = [[1,4],[6,5]]
 
     tab_save_freq = 200
+
+    random_mdp = True
+
+    map_height = 15
+    map_width = 15
+    clustering_iterations = 10
+    mdp_num = 0
+
+    if random_mdp:
+        mdp_map = make_map(map_height, map_width, clustering_iterations, seed)
+    else:
+        mdp_map = get_tile_map(mdp_num)
     seed = 0
     gpu_num = 0
 

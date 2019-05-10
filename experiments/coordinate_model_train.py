@@ -20,8 +20,6 @@ coordinate_model_train_ex.add_source_file('utils/demos_utils.py')
 @coordinate_model_train_ex.config
 def default_config():
 
-    mdp_num = 0
-    mdp_map = get_tile_map(mdp_num)
 
     gamma = 0.99
     alpha = 1e-2
@@ -78,6 +76,18 @@ def default_config():
     seed = 0
     gpu_num = 0
 
+    random_mdp = True
+
+    map_height = 15
+    map_width = 15
+    clustering_iterations = 10
+    mdp_num = 0
+
+    if random_mdp:
+        mdp_map = make_map(map_height, map_width, clustering_iterations, seed)
+    else:
+        mdp_map = get_tile_map(mdp_num)
+
 @coordinate_model_train_ex.named_config
 def concise_boi():
 
@@ -103,7 +113,6 @@ def safer_concise_boi():
     # Config made up of ['nall', 'ntll', 'tde', 'tde_sg_q', 'tde_sg_t']
     update_progression = [[0, 6], [5], [4]]  # [[0],[5],[4],[7]] #[[4],[0,4,5]]
     model_save_weights = [0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
-
 
 
 
