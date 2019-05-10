@@ -2,6 +2,7 @@ import matplotlib.cm as cm
 import matplotlib.colors as colors
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.patches import Rectangle
 
 from sacred import Experiment
 from sacred.observers import FileStorageObserver
@@ -26,6 +27,21 @@ MAP_COLORS = {b'F': "#ffffff", # Normal Square
               b'3': "reward"} # Reward Square
 
 
+def add_boxed_text(x, y, width, height, label, fill_color, plt, ax, font_size=8):
+    """This adds text within a box on a plot.
+    """
+    plt.text(x + width * .5, y + height * .5, label, size=font_size, ha="center", va="center")
+    rect = Rectangle((x, y), width, height, facecolor=fill_color)
+    ax.add_patch(rect)
+
+
+def green_fill(proportion):
+    """Given a proportion from 0 to 1, return a color value on a green colorbar..
+    """
+    cmap = cm.get_cmap('Greens')
+    return cmap(1./12 + proportion*2/3)
+
+
 def visualize_temporal_value_function(q_val_dyn_list, mdp, show_art, out_dir, metrics, coordinate):
     """This creates a grid of grid-world layouts representing the Q-values.
 
@@ -40,8 +56,7 @@ def visualize_temporal_value_function(q_val_dyn_list, mdp, show_art, out_dir, me
     num_cols = mdp.ncol
     num_actions = mdp.num_actions
 
-
-    fig = plt.figure(figsize=(num_rows, num_cols))
+    fig = plt.figure(figsize=(num_cols, num_rows/2))
     ax = plt.gca()
     ax.set_axis_off()
 
@@ -69,7 +84,8 @@ def visualize_temporal_value_function(q_val_dyn_list, mdp, show_art, out_dir, me
         plt.clf()
 
     for step_num, q_val, dyn_model in q_val_dyn_list:
-
+        fig.add_subplot(1, 2, 1)
+        # ------ Plot the q-values
         plot_title = str(step_num)
         if coordinate and step_num in regime_steps:
             plot_title += " " + regime_steps[step_num]
@@ -101,8 +117,45 @@ def visualize_temporal_value_function(q_val_dyn_list, mdp, show_art, out_dir, me
                 else:
                     plt.plot(x, y, 'mo')
         imshow = plt.imshow(max_val, cmap='gray')
+
+        # ------ Plot the dynamics
+        ax = fig.add_subplot(1, 2, 2)
+        ax.set_axis_off()
+        margin = .1
+        dyn_data = dyn_model.round(2)
+        num_algs = 1
+        num_tiles = dyn_model.shape[0]
+
+        dyn_num_rows = (1 + num_algs) * num_tiles
+        dyn_num_cols = 5
+
+        plt.xlim([-margin, dyn_num_cols + margin])
+        plt.ylim([-margin, dyn_num_rows + margin])
+
+        for tile_i in range(num_tiles):
+            top_row_i = dyn_num_rows - 1 - (tile_i * (1 + num_algs))
+            plt.text(1 - margin, top_row_i + margin, str(tile_i), fontdict={'weight': 'bold'}, size=50, ha='right', va='bottom')
+            for act_i, act in enumerate(['left', 'down', 'right', 'up', 'stay']):
+                plt.text(act_i + 0.5, top_row_i + margin, act, size=15, ha='center', va='bottom')
+
+            # Plot the cross and the bounding rectangle.
+            for act_i, act in enumerate(dyn_data[tile_i]):
+                add_boxed_text(act_i + 3. / 8, top_row_i - 3. / 8, 1. / 4, 1. / 4,
+                               act[3], green_fill(act[3]), plt, ax)
+                add_boxed_text(act_i + 1. / 8, top_row_i - 5. / 8, 1. / 4, 1. / 4,
+                               act[0], green_fill(act[0]), plt, ax)
+                add_boxed_text(act_i + 3. / 8, top_row_i - 5. / 8, 1. / 4, 1. / 4,
+                               act[4], green_fill(act[4]), plt, ax)
+                add_boxed_text(act_i + 5. / 8, top_row_i - 5. / 8, 1. / 4, 1. / 4,
+                               act[2], green_fill(act[2]), plt, ax)
+                add_boxed_text(act_i + 3. / 8, top_row_i - 7. / 8, 1. / 4, 1. / 4,
+                               act[1], green_fill(act[1]), plt, ax)
+                ax.add_patch(Rectangle((act_i, top_row_i - 1), 1, 1, fill=False, linewidth=3))
+
         plt.savefig(os.path.join(out_dir, str(step_num) + ".png"))
         plt.clf()
+        fig = plt.figure(figsize=(num_cols, num_rows/2))
+
 
 
 @value_function_visualization.config
@@ -134,7 +187,7 @@ def load_single_exp_data(experiment_num):
     dyn_file_header = os.path.join(file_path, "adt_probs*")
     dyn_model_files = glob.glob(dyn_file_header)
     dyn_iters_models = [(int(file.split("_")[-1].split(".")[0]), pkl.load(open(file, 'rb'))) for file in dyn_model_files]
-    dyn_iters_models = list(sorted(value_iters_models, key=lambda x: x[0]))
+    dyn_iters_models = list(sorted(dyn_iters_models, key=lambda x: x[0]))
     iters_models = [(value_iters_models[i][0], value_iters_models[i][1], dyn_iters_models[i][1]) for i in range(len(dyn_iters_models))]
     data += iters_models
     mdp = pkl.load(open(os.path.join("logs", "models", str(experiment_num), "mdp.pkl"), "rb"))
