@@ -134,7 +134,7 @@ def load_single_exp_data(experiment_num):
     dyn_file_header = os.path.join(file_path, "adt_probs*")
     dyn_model_files = glob.glob(dyn_file_header)
     dyn_iters_models = [(int(file.split("_")[-1].split(".")[0]), pkl.load(open(file, 'rb'))) for file in dyn_model_files]
-    dyn_iters_models = list(sorted(value_iters_models, key=lambda x: x[0]))
+    dyn_iters_models = list(sorted(dyn_iters_models, key=lambda x: x[0]))
     iters_models = [(value_iters_models[i][0], value_iters_models[i][1], dyn_iters_models[i][1]) for i in range(len(dyn_iters_models))]
     data += iters_models
     mdp = pkl.load(open(os.path.join("logs", "models", str(experiment_num), "mdp.pkl"), "rb"))

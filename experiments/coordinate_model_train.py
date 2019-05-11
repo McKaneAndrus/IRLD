@@ -115,6 +115,19 @@ def safer_concise_boi():
     update_progression = [[0, 6], [5], [4]]  # [[0],[5],[4],[7]] #[[4],[0,4,5]]
     model_save_weights = [0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
 
+@coordinate_model_train_ex.named_config
+def extended_boi():
+
+    dyn_layer_norm = False
+    q_layer_norm = False
+
+    horizon=2500
+    alphas = [5e-3, 1e-3, 1e-3, 1e-3, 5e-3]
+    improvement_proportions = [-np.inf, -np.inf, -np.inf, -np.inf, 0.5]  # [0.1, -1, 0.1]
+    # Config made up of ['nall', 'ntll', 'tde', 'tde_sg_q', 'tde_sg_t']
+    update_progression = [[0],[5],[7],[5],[4]]  # [[0],[5],[4],[7]] #[[4],[0,4,5]]
+    model_save_weights = [0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
+
 
 
 

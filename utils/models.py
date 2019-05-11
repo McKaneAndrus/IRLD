@@ -450,8 +450,7 @@ class InverseDynamicsLearner():
                         q_vals = self.sess.run([self.test_qs_t], feed_dict={self.test_q_obs_t_feats_ph: q_states})[0]
                         adt_logits = \
                         self.sess.run([self.pred_obs], feed_dict={self.demo_tile_t_ph: adt_samples[:, 0][np.newaxis].T,
-                                                                  self.demo_act_t_ph: adt_samples[:, 1][np.newaxis].T})[
-                            0]
+                                                                  self.demo_act_t_ph: adt_samples[:, 1][np.newaxis].T})[0]
                         adt_probs = softmax(adt_logits)
                         adt_probs = adt_probs.reshape(self.mdp.tile_types, self.mdp.num_actions,
                                                       self.mdp.num_directions)
@@ -506,7 +505,7 @@ class InverseDynamicsLearner():
 
 
         recent_loss = (sum(losses[-running_dist:])/running_dist)
-        improvement = 1 - recent_loss/self.prev_bests[self.curr_update_index]
+        improvement = 1 - recent_loss/(self.prev_bests[self.curr_update_index] + 1e-12)
         switch = improvement > self.improvement_proportions[self.curr_update_index]
 
         if switch:
