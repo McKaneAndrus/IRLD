@@ -219,9 +219,9 @@ def visualize_temporal_value_function(q_val_dyn_list, mdp, show_art, out_dir, me
         regime_q_vals_list.append(prev_q_val)
         regime_dyn_list.append(prev_dyn_model)
 
-    q_vals_kwargs = {'num_rows': num_rows, 'num_cols': num_cols, 'num_actions': num_actions}
-    agg_plot(regime_q_vals_list, plot_q_vals, q_vals_kwargs, regime_order, regimes, num_regime_rows, os.path.join(out_dir, 'agg_q_vals.png'))
-    agg_plot(regime_dyn_list, plot_dynamics, {}, regime_order, regimes, num_regime_rows, os.path.join(out_dir, 'agg_dyns.png'))
+        q_vals_kwargs = {'num_rows': num_rows, 'num_cols': num_cols, 'num_actions': num_actions}
+        agg_plot(regime_q_vals_list, plot_q_vals, q_vals_kwargs, regime_order, regimes, num_regime_rows, os.path.join(out_dir, 'agg_q_vals.png'))
+        agg_plot(regime_dyn_list, plot_dynamics, {}, regime_order, regimes, num_regime_rows, os.path.join(out_dir, 'agg_dyns.png'))
 
 @value_function_visualization.config
 def config():

@@ -249,11 +249,12 @@ class InverseDynamicsLearner():
 
         if regime == "coordinate":
             # Coordinate descent training regime
-            self.update_horizon = regime_params["horizon"]
+            self.alphas = regime_params['alphas']
+            hs = regime_params["horizons"]
+            self.update_horizons = hs if type(hs) == list else [hs] * len(self.alphas)
             self.improvement_proportions = regime_params["improvement_proportions"]
             self.prev_bests = [np.inf for _ in range(len(self.improvement_proportions))]
             self.switch_frequency = regime_params["switch_frequency"]
-            self.alphas = regime_params['alphas']
             self.model_save_loss = sum(self.log_losses * np.array(regime_params["model_save_weights"]))
             # Update progression is a list of list of ints in the range(len(self.loss_fns))
             self.loss_progression = [sum(self.loss_fns[config]) for config in regime_params["update_progression"]]
@@ -266,17 +267,13 @@ class InverseDynamicsLearner():
                     gradients, variables = zip(*optimizer.compute_gradients(loss))
                     gradients, _ = tf.clip_by_global_norm(gradients, regime_params['clip_global'])
                     self.update_progression += [optimizer.apply_gradients(zip(gradients, variables))]
-                else:
-                    self.update_progression = [tf.train.AdamOptimizer(self.alphas[i], self.beta1, self.beta2).minimize(
-                            loss, name="opt_{}".format(i)) for i,loss in enumerate(self.loss_progression)]
-            if regime_params["initial_update"] is not None:
-                self.curr_update_index = -1
-                self.curr_loss = sum(self.loss_fns[regime_params["initial_update"]])
-                self.curr_update = tf.train.AdamOptimizer(self.alpha, self.beta1, self.beta2).minimize(self.curr_loss)
             else:
-                self.curr_update_index = 0
-                self.curr_loss = self.loss_progression[self.curr_update_index]
-                self.curr_update = self.update_progression[self.curr_update_index]
+                self.update_progression = [tf.train.AdamOptimizer(self.alphas[i], self.beta1, self.beta2).minimize(
+                        loss, name="opt_{}".format(i)) for i,loss in enumerate(self.loss_progression)]
+
+            self.curr_update_index = 0
+            self.curr_loss = self.loss_progression[self.curr_update_index]
+            self.curr_update = self.update_progression[self.curr_update_index]
 
 
 
@@ -496,7 +493,7 @@ class InverseDynamicsLearner():
 
     def _update_switcher(self, losses, running_dist=50):
 
-        if len(losses) < self.update_horizon:
+        if len(losses) < self.update_horizons[self.curr_update_index]:
             return False
 
         if self.prev_bests[self.curr_update_index] == np.inf:

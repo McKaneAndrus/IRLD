@@ -15,6 +15,8 @@ coordinate_model_train_ex = Experiment("coordinate_model_train")
 coordinate_model_train_ex.observers.append(FileStorageObserver.create('logs/sacred'))
 coordinate_model_train_ex.add_source_file('utils/models.py')
 coordinate_model_train_ex.add_source_file('utils/demos_utils.py')
+coordinate_model_train_ex.add_source_file('utils/tf_utils.py')
+coordinate_model_train_ex.add_source_file('envs/environment_setup_utils.py')
 
 
 @coordinate_model_train_ex.config
@@ -60,7 +62,7 @@ def default_config():
     batch_size = 256
     n_training_iters = 150000
     dyn_pretrain_iters = 20000
-    horizon = 5000
+    horizons = 5000
     alphas = [5e-3, 5e-3] #[1e-4, 1e-4,1e-2,1e-4]
     improvement_proportions = [-np.inf, -np.inf] #[0.1, -1, 0.1]
     switch_frequency = 500
@@ -95,7 +97,8 @@ def concise_boi():
     dyn_layer_norm = False
     q_layer_norm = False
 
-    horizon=2500
+    horizons=2500
+    switch_frequency = 500
     alphas = [5e-3, 1e-3, 5e-3]
     improvement_proportions = [-np.inf, -np.inf, 0.5]  # [0.1, -1, 0.1]
     # Config made up of ['nall', 'ntll', 'tde', 'tde_sg_q', 'tde_sg_t']
@@ -108,7 +111,7 @@ def safer_concise_boi():
     dyn_layer_norm = False
     q_layer_norm = False
 
-    horizon=2500
+    horizons=2500
     alphas = [5e-3, 1e-3, 5e-3]
     improvement_proportions = [-np.inf, -np.inf, 0.5]  # [0.1, -1, 0.1]
     # Config made up of ['nall', 'ntll', 'tde', 'tde_sg_q', 'tde_sg_t']
@@ -121,11 +124,25 @@ def extended_boi():
     dyn_layer_norm = False
     q_layer_norm = False
 
-    horizon=2500
+    horizons=2500
     alphas = [5e-3, 1e-3, 1e-3, 1e-3, 5e-3]
     improvement_proportions = [-np.inf, -np.inf, -np.inf, -np.inf, 0.5]  # [0.1, -1, 0.1]
     # Config made up of ['nall', 'ntll', 'tde', 'tde_sg_q', 'tde_sg_t']
     update_progression = [[0],[5],[7],[5],[4]]  # [[0],[5],[4],[7]] #[[4],[0,4,5]]
+    model_save_weights = [0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
+
+@coordinate_model_train_ex.named_config
+def speedy_concise_boi():
+
+    dyn_layer_norm = False
+    q_layer_norm = False
+
+    horizons=[100,500,4000]
+    switch_frequency = 100
+    alphas = [5e-3, 2e-4, 1e-2]
+    improvement_proportions = [-np.inf, -np.inf, 0.1]  # [0.1, -1, 0.1]
+    # Config made up of ['nall', 'ntll', 'tde', 'tde_sg_q', 'tde_sg_t']
+    update_progression = [[0], [5], [4]]  # [[0],[5],[4],[7]] #[[4],[0,4,5]]
     model_save_weights = [0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
 
 
@@ -135,7 +152,7 @@ def extended_boi():
 def coordinate_train(_run, mdp_map, gamma, alpha, beta1, beta2, constraint_batch_size, q_n_layers, q_layer_size, q_activation,
             q_output_activation, q_layer_norm, target_update_freq, dyn_n_layers, dyn_layer_size, dyn_activation,
             dyn_output_activation, dyn_layer_norm, boltz_beta, mellowmax, gamma_demo, temp_boltz_beta, n_demos,
-            demo_time_steps, n_training_iters, dyn_pretrain_iters, batch_size, horizon, alphas, improvement_proportions,
+            demo_time_steps, n_training_iters, dyn_pretrain_iters, batch_size, horizons, alphas, improvement_proportions,
             switch_frequency, initial_update, update_progression, model_save_weights, tab_save_freq, clip_global, gpu_num, seed):
 
     os_setup(gpu_num)
@@ -166,7 +183,7 @@ def coordinate_train(_run, mdp_map, gamma, alpha, beta1, beta2, constraint_batch
                                        mellowmax=mellowmax, alpha=alpha, beta1=beta1, beta2=beta2, seed=seed)
                                                                     #, q_scope=q_scope, dyn_scope=dyn_scope)
 
-        regime_params = {"horizon": horizon,
+        regime_params = {"horizons": horizons,
                          'improvement_proportions':improvement_proportions,
                          'switch_frequency': switch_frequency,
                          'initial_update': initial_update,
