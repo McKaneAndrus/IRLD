@@ -21,7 +21,7 @@ value_function_visualization.observers.append(FileStorageObserver.create('logs/s
 
 
 MAP_COLORS = {b'F': "#ffffff", # Normal Square
-              b'S': "#ffffff", # Normal Square
+              b'S': "#bbbbbb", # Normal Square
               b'U': "#000000", # Pit
               b'1': "reward", # Reward Square
               b'2': "reward", # Reward Square
@@ -226,7 +226,7 @@ def visualize_temporal_value_function(q_val_dyn_list, mdp, show_art, out_dir, me
 @value_function_visualization.config
 def config():
     out_dir = "logs/generated_images_"
-    show_art = None
+    show_art = True
     coordinate = False
 
     _ = locals()  # quieten flake8 unused variable warning
