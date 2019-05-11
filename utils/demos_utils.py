@@ -4,11 +4,14 @@ from utils.soft_q_learning import tabsoftq_gen_pol, tabsoftq_learn_Qs, vectorize
 import random
 
 
-def clean_demos(sas_obs, max_noops):
+def clean_demos(sas_obs, adt_obs, max_noops):
     demo_example_idxes = list(range(len(sas_obs)))
     unique_stays, stay_count = set([]), 0
-    for i,sas in enumerate(sas_obs):
+    for i,(sas,adt) in enumerate(zip(sas_obs,adt_obs)):
         sas = tuple(sas)
+        if adt[2] == 1:
+            demo_example_idxes.remove(i)
+            continue
         if sas[1] == 4:
             stay_count += 1
             if sas in unique_stays:
@@ -18,6 +21,7 @@ def clean_demos(sas_obs, max_noops):
                 unique_stays.add(sas)
         else:
             stay_count = 0
+
     return demo_example_idxes
 
 
@@ -30,13 +34,11 @@ def get_demos(mdp, gamma, temp_boltz_beta, n_demos, demo_time_steps, seed=0, max
     demos = []
     while len(demos) < n_demos:
         new_demo = generate_demonstrations(mdp, tabsoftq_gen_pol(exQs, beta=temp_boltz_beta), 1, demo_time_steps)[0]
-        more_sas, more_adt = list(zip(*new_demo))
-        if len(set([adt[2] for adt in more_adt])) == 1:
-            demos += [new_demo]
+        demos += [new_demo]
 
     sas_obs, adt_obs = vectorize_rollouts(demos)
 
-    good_indexes = clean_demos(sas_obs, max_noops)
+    good_indexes = clean_demos(sas_obs, adt_obs, max_noops)
     sas_obs, adt_obs = sas_obs[good_indexes], adt_obs[good_indexes]
     constraints = generate_constraints(mdp)
     nn_rollouts = nn_vectorize_rollouts(mdp, sas_obs, adt_obs)

@@ -77,7 +77,7 @@ def default_config():
     map_seed = 1
     gpu_num = 0
 
-    random_mdp = True
+    random_mdp = False
 
     map_height = 15
     map_width = 15
