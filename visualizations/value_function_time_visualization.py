@@ -209,7 +209,7 @@ def visualize_temporal_value_function(q_val_dyn_list, mdp, show_art, out_dir, me
         ax = fig.add_subplot(1, 2, 2)
         plot_dynamics(dyn_model, plt, ax, fig)
 
-        plt.savefig(os.path.join(out_dir, str(step_num) + ".png"))
+        plt.savefig(os.path.join(out_dir, format(step_num, '09d') + ".png"))
         plt.clf()
 
         prev_iter = (q_val, dyn_model)
