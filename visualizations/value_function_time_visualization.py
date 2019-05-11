@@ -28,7 +28,7 @@ MAP_COLORS = {b'F': "#ffffff", # Normal Square
               b'3': "reward"} # Reward Square
 
 
-def add_boxed_text(x, y, width, height, label, fill_color, plt, ax, font_size=8):
+def add_boxed_text(x, y, width, height, label, fill_color, plt, ax, font_size=5):
     """This adds text within a box on a plot.
     """
     plt.text(x + width * .5, y + height * .5, label, size=font_size, ha="center", va="center")
@@ -97,7 +97,7 @@ def plot_dynamics(dyn_model, plt, ax, fig, plot_title=''):
 
     for tile_i in range(num_tiles):
         top_row_i = dyn_num_rows - 1 - (tile_i * (1 + num_algs))
-        plt.text(1 - margin, top_row_i + 1 - margin, str(tile_i), fontdict={'weight': 'bold'}, size=50, ha='right', va='top')
+        plt.text(1 - margin, top_row_i + 1 - margin, str(tile_i), fontdict={'weight': 'bold'}, size=30, ha='right', va='top')
         for act_i, act in enumerate(['left', 'down', 'right', 'up', 'stay']):
             plt.text(act_i + 0.5, top_row_i + margin, act, size=15, ha='center', va='bottom')
 
