@@ -3,6 +3,7 @@ import matplotlib.colors as colors
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.patches import Rectangle
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 from sacred import Experiment
 from sacred.observers import FileStorageObserver
@@ -42,7 +43,7 @@ def green_fill(proportion):
     return cmap(1./12 + proportion*2/3)
 
 
-def plot_q_vals(q_val, plt, ax, plot_title='', num_rows=1, num_cols=1, num_actions=1):
+def plot_q_vals(q_val, plt, ax, fig, plot_title='', num_rows=1, num_cols=1, num_actions=1):
     if plot_title:
         plt.title(plot_title, weight='bold')
 
@@ -72,7 +73,13 @@ def plot_q_vals(q_val, plt, ax, plot_title='', num_rows=1, num_cols=1, num_actio
                 plt.plot(x, y, 'mo')
     imshow = plt.imshow(max_val, cmap='gray')
 
-def plot_dynamics(dyn_model, plt, ax, plot_title=''):
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes("left", size="5%", pad=0.15)
+    cbar = fig.colorbar(imshow, cax=cax, ticks=[np.min(max_val), np.max(max_val)])
+    cbar.ax.yaxis.set_ticks_position('left')
+    cbar.ax.set_yticklabels([np.min(max_val).round(2), np.max(max_val).round(2)])
+
+def plot_dynamics(dyn_model, plt, ax, fig, plot_title=''):
     if plot_title:
         plt.title(plot_title, weight='bold')
 
@@ -119,9 +126,9 @@ def agg_plot(data, plot_fn, plot_fn_kwargs, regime_order, regimes, num_regime_ro
             curr_row += 1
         ax = fig.add_subplot(num_regime_rows + 1, num_regimes, 1 + num_regimes * curr_row + col)
         if curr_row == 0:
-            plot_fn(data, plt, ax, **plot_fn_kwargs, plot_title=regime)
+            plot_fn(data, plt, ax, fig, **plot_fn_kwargs, plot_title=regime)
         else:
-            plot_fn(data, plt, ax, **plot_fn_kwargs)
+            plot_fn(data, plt, ax, fig, **plot_fn_kwargs)
         last_col = col
     plt.savefig(out_file)
 
@@ -195,16 +202,15 @@ def visualize_temporal_value_function(q_val_dyn_list, mdp, show_art, out_dir, me
                         num_regime_rows += 1
             last_regime = curr_regime
 
-        fig.add_subplot(1, 2, 1)
-        plot_q_vals(q_val, plt, None, plot_title=plot_title, num_rows=num_rows, num_cols=num_cols, num_actions=num_actions)
+        ax = fig.add_subplot(1, 2, 1)
+        plot_q_vals(q_val, plt, ax, fig, plot_title=plot_title, num_rows=num_rows, num_cols=num_cols, num_actions=num_actions)
 
         # ------ Plot the dynamics
         ax = fig.add_subplot(1, 2, 2)
-        plot_dynamics(dyn_model, plt, ax)
+        plot_dynamics(dyn_model, plt, ax, fig)
 
         plt.savefig(os.path.join(out_dir, str(step_num) + ".png"))
         plt.clf()
-        fig = plt.figure(figsize=(num_cols, num_rows/2))
 
         prev_iter = (q_val, dyn_model)
 
