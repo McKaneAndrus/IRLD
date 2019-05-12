@@ -182,6 +182,22 @@ def kl_boi():
     update_progression = [[0], [5], [9], [4]]  # [[0],[5],[4],[7]] #[[4],[0,4,5]]
     model_save_weights = [0.0, 0.0, 1.0, 0.0, 1.0]
 
+@coordinate_model_train_ex.named_config
+def kl_combo_boi():
+    dyn_layer_norm = False
+    q_layer_norm = False
+    weight_norm = True
+    mellowmax = None
+    lse_softmax = None
+
+    horizons = [500, 5000, 5000]
+    switch_frequency = 500
+    alphas = [5e-3, 2e-4, 5e-3]
+    improvement_proportions = [ -np.inf, -np.inf, 0.25]  # [0.1, -1, 0.1]
+    # Config made up of ['nall', 'ntll', 'tde', 'tde_sg_q', 'tde_sg_t']
+    update_progression = [[0], [5,9], [4]]  # [[0],[5],[4],[7]] #[[4],[0,4,5]]
+    model_save_weights = [0.0, 0.0, 1.0, 0.0, 1.0]
+
 
 
 @coordinate_model_train_ex.automain

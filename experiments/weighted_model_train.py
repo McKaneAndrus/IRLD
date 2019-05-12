@@ -96,8 +96,8 @@ def kl_boi():
     dyn_layer_norm = False
     q_layer_norm = False
     alpha = 5e-3
-    losses = [0,5, 9, 4]
-    loss_weights = [1.0, 1e1, 1e2, 1e1]
+    losses = [0, 9, 3, 4]
+    loss_weights = [1.0, 1e2, 1.0, 1e1]
 
 
 

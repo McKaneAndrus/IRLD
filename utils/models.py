@@ -130,15 +130,17 @@ class InverseDynamicsLearner():
         trans_probs = tf.gather_nd(tf.nn.softmax(self.pred_obs, axis=1), dir_indexes)
         trans_log_likelihoods = tf.log(trans_probs)
 
-        baseline_trans_probs = tf.gather_nd(tf.nn.softmax(self.baseline_pred_obs, axis=1), dir_indexes)
-        baseline_trans_log_likelihoods = tf.stop_gradient(tf.log(baseline_trans_probs))
+        baseline_trans_probs = tf.gather_nd(tf.nn.softmax(tf.stop_gradient(self.baseline_pred_obs), axis=1), dir_indexes)
+        baseline_trans_log_likelihoods = tf.log(baseline_trans_probs)
 
         self.neg_avg_trans_log_likelihood = -tf.reduce_mean(trans_log_likelihoods)
 
         # Set up KL-Divergence over demo observations
-        trans_KL_components = baseline_trans_log_likelihoods * (baseline_trans_log_likelihoods-trans_log_likelihoods)
-        self.trans_baseline_KL = tf.reduce_mean(trans_KL_components)
-        self.trans_baseline_KL_distance = tf.reduce_mean(tf.abs(trans_KL_components))
+        base_learned_KL_components = baseline_trans_probs * (baseline_trans_log_likelihoods - trans_log_likelihoods)
+        learned_base_KL_components = trans_probs * (trans_log_likelihoods - baseline_trans_log_likelihoods)
+        self.trans_baseline_KL = tf.reduce_mean(base_learned_KL_components)
+        self.bidirectional_KL = tf.reduce_mean(base_learned_KL_components + learned_base_KL_components)
+        # self.trans_baseline_KL_distance = tf.reduce_mean(tf.abs(trans_KL_components))
 
 
         ca_indexes = tf.concat([tf.expand_dims(tf.range(self.constraint_batch_size_ph), 1), self.constraint_act_t_ph], axis=1)
@@ -227,7 +229,7 @@ class InverseDynamicsLearner():
         self.lqsafer = self.neg_avg_act_log_likelihood / (1/self.td_err + 1/self.neg_avg_trans_log_likelihood)
         self.llt_weighted_td_err = self.td_err_sgq * self.neg_avg_trans_log_likelihood #(1 + self.td_err_sgq) * (1 + self.neg_avg_trans_log_likelihood) ** 5
         self.lla_weighted_td_err = self.td_err_sgt * self.neg_avg_act_log_likelihood
-        self.kl_weighted_td_err = self.td_err_sgq * tf.maximum(self.trans_baseline_KL_distance, 1e-9)
+        self.kl_weighted_td_err = self.td_err * tf.maximum(self.bidirectional_KL, 1e-7)
         # self.td_err_weighted_ll = 1/(self.ll_weighted_td_err + 1e-8)
 
         # Set up target network
@@ -260,7 +262,7 @@ class InverseDynamicsLearner():
 
         self.loss_fns = np.array([self.neg_avg_act_log_likelihood, self.neg_avg_trans_log_likelihood,
                          self.td_err, self.td_err_sgq, self.td_err_sgt, self.llt_weighted_td_err, self.lqsafer,
-                         self.lla_weighted_td_err, self.trans_baseline_KL_distance, self.kl_weighted_td_err,
+                         self.lla_weighted_td_err, self.bidirectional_KL, self.kl_weighted_td_err,
                          self.trans_baseline_KL]) #, self.true_q_err])
         self.loss_fns_titles = np.array(['nall', 'ntll', 'tde', 'tde_sg_q', 'tde_sg_t', 'llt_tde', 'lqsafe', 'lla_tde',
                                          'trans_kl_dist', 'kl_tde', 'kl']) #, 'true_q_err'])
