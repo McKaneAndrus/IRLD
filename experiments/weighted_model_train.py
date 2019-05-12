@@ -89,6 +89,15 @@ def temperamental_boi():
     losses = [0,1,3,4]
     loss_weights = [1.0, 1.0, 0.05, 1.0]
 
+@weighted_model_train_ex.named_config
+def kl_boi():
+
+    dyn_layer_norm = False
+    q_layer_norm = False
+    alpha = 5e-3
+    losses = [0,5, 8, 4]
+    loss_weights = [1.0, 1e3, 1e5, 1e4]
+
 
 
 

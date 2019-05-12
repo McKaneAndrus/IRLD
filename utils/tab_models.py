@@ -7,11 +7,9 @@ from utils.tf_utils import save_tf_vars, load_tf_vars
 import os
 import pickle as pkl
 
-
 class InverseDynamicsLearner():
 
-    def __init__(self, mdp, sess, gamma=0.99, adt=True, mellowmax=None, boltz_beta=50, mlp_params=None,
-                    alpha=1e-4, beta1=0.9, beta2=0.999999, seed=0, dyn_scope="Dynamics", q_scope="Qs"):
+    def __init__(self, mdp, gamma=0.99, boltz_beta=50, alpha=1e-4, seed=0):
 
         mlp_params = {} if mlp_params is None else mlp_params
 
@@ -44,8 +42,6 @@ class InverseDynamicsLearner():
         q_output_activation = mlp_params.get('q_output_activation', None)
         q_layer_norm = mlp_params.get('q_layer_norm', False)
 
-        weight_norm = mlp_params.get('weight_norm', True)
-
 
         self.demo_tile_t_ph = tf.placeholder(tf.int32, [None, 1], name="dtt")
         self.demo_act_t_ph = tf.placeholder(tf.int32, [None, 1], name="dat")
@@ -71,7 +67,7 @@ class InverseDynamicsLearner():
                              n_act_dim, q_scope,
                              n_layers=q_n_layers, size=q_layer_size,
                              activation=q_layer_activation, output_activation=q_output_activation,
-                             layer_norm=q_layer_norm, weight_norm=weight_norm) * boltz_beta
+                             layer_norm=q_layer_norm) * boltz_beta
 
         demo_v_t = tf.reduce_logsumexp(demo_q_t, axis=1)
 
@@ -95,48 +91,20 @@ class InverseDynamicsLearner():
                 n_dirs, dyn_scope,
                 n_layers=dyn_n_layers, size=dyn_layer_size,
                 activation=dyn_layer_activation, output_activation=dyn_output_activation,
-                layer_norm=dyn_layer_norm, weight_norm=weight_norm)
-
-            self.baseline_pred_obs = build_mlp(
-                tf.concat((self.demo_act_t_ph, demo_tile_t_one_hot), axis=1),
-                n_dirs, "dyn_baseline",
-                n_layers=dyn_n_layers, size=dyn_layer_size,
-                activation=dyn_layer_activation, output_activation=dyn_output_activation,
-                layer_norm=dyn_layer_norm, weight_norm=weight_norm, reuse=False)
+                layer_norm=dyn_layer_norm)
         else:
             self.pred_obs = build_mlp(
                 tf.concat((demo_tile_t_one_hot, self.demo_act_t_ph), axis=1),
                 n_dirs, dyn_scope,
                 n_layers=dyn_n_layers, size=dyn_layer_size,
                 activation=dyn_layer_activation, output_activation=dyn_output_activation,
-                layer_norm=dyn_layer_norm, weight_norm=weight_norm)
-
-            self.pred_obs = build_mlp(
-                tf.concat((demo_tile_t_one_hot, self.demo_act_t_ph), axis=1),
-                n_dirs, "dyn_baseline",
-                n_layers=dyn_n_layers, size=dyn_layer_size,
-                activation=dyn_layer_activation, output_activation=dyn_output_activation,
-                layer_norm=dyn_layer_norm, weight_norm=weight_norm, reuse=False)
+                layer_norm=dyn_layer_norm)
 
 
-        # trans_log_likelihoods = tf.gather_nd(self.pred_obs, dir_indexes) - tf.reduce_logsumexp(self.pred_obs, axis=1)
-        # trans_probs = tf.exp(trans_log_likelihoods)
-        #
-        # baseline_trans_log_likelihoods = tf.gather_nd(self.baseline_pred_obs, dir_indexes) - tf.reduce_logsumexp(self.baseline_pred_obs, axis=1)
-        # baseline_trans_probs = tf.exp(baseline_trans_log_likelihoods)
-
-        trans_probs = tf.gather_nd(tf.nn.softmax(self.pred_obs, axis=1), dir_indexes)
-        trans_log_likelihoods = tf.log(trans_probs)
-
-        baseline_trans_probs = tf.gather_nd(tf.nn.softmax(self.baseline_pred_obs, axis=1), dir_indexes)
-        baseline_trans_log_likelihoods = tf.stop_gradient(tf.log(baseline_trans_probs))
+        trans_log_likelihoods = tf.gather_nd(self.pred_obs, dir_indexes) - tf.reduce_logsumexp(self.pred_obs, axis=1)
 
         self.neg_avg_trans_log_likelihood = -tf.reduce_mean(trans_log_likelihoods)
 
-        # Set up KL-Divergence over demo observations
-        trans_KL_components = baseline_trans_log_likelihoods * (baseline_trans_log_likelihoods-trans_log_likelihoods)
-        self.trans_baseline_KL = tf.reduce_mean(trans_KL_components)
-        self.trans_baseline_KL_distance = tf.reduce_mean(tf.abs(trans_KL_components))
 
 
         ca_indexes = tf.concat([tf.expand_dims(tf.range(self.constraint_batch_size_ph), 1), self.constraint_act_t_ph], axis=1)
@@ -145,7 +113,7 @@ class InverseDynamicsLearner():
                                     n_act_dim, q_scope,
                                     n_layers=q_n_layers, size=q_layer_size,
                                     activation=q_layer_activation, output_activation=q_output_activation,
-                                    layer_norm=q_layer_norm, weight_norm=weight_norm, reuse=True)
+                                    layer_norm=q_layer_norm, reuse=True)
 
         constraint_q_t = tf.gather_nd(self.constraint_qs_t, ca_indexes)
 
@@ -156,14 +124,14 @@ class InverseDynamicsLearner():
                 n_dirs, dyn_scope,
                 n_layers=dyn_n_layers, size=dyn_layer_size,
                 activation=dyn_layer_activation, output_activation=dyn_output_activation,
-                layer_norm=dyn_layer_norm, weight_norm=weight_norm, reuse=True)
+                layer_norm=dyn_layer_norm, reuse=True)
         else:
             constraint_pred_obs = build_mlp(
                 tf.concat((self.constraint_obs_t_feats_ph, self.constraint_act_t_ph), axis=1),
                 n_dirs, dyn_scope,
                 n_layers=dyn_n_layers, size=dyn_layer_size,
                 activation=dyn_layer_activation, output_activation=dyn_output_activation,
-                layer_norm=dyn_layer_norm, weight_norm=weight_norm, reuse=True)
+                layer_norm=dyn_layer_norm, reuse=True)
 
         constraint_sprimes_reshaped = tf.reshape(self.constraint_next_obs_t_feats_ph,
                                                  (self.constraint_batch_size_ph * n_dirs, n_obs_feats))
@@ -173,7 +141,7 @@ class InverseDynamicsLearner():
                                     n_act_dim, scope="target",
                                     n_layers=q_n_layers, size=q_layer_size,
                                     activation=q_layer_activation, output_activation=q_output_activation,
-                                    layer_norm=q_layer_norm, weight_norm=weight_norm, reuse=False)
+                                    layer_norm=q_layer_norm, reuse=False)
 
         constraint_q_tp1 = tf.reshape(tf.stop_gradient(cqtp1_misshaped), (self.constraint_batch_size_ph, n_dirs, n_act_dim))
 
@@ -216,16 +184,12 @@ class InverseDynamicsLearner():
         target_t_sgq = self.constraint_rew_t_ph + gamma * tf.reduce_sum(constraint_next_vs_sgq, axis=1)
         self.td_err_sgq = tf.reduce_mean((tf.stop_gradient(constraint_q_t) - target_t_sgq) ** 2)
 
-        #KL-divergence for observed transitions
-
-
         #Experimental
         # self.best_ntll = 1.0
         # self.delta_ll_td_err = self.td_err * self.neg_avg_act_log_likelihood * tf.minimum(self.neg_avg_trans_log_likelihood - self.best_ntll, 1e-12)
         self.lqsafer = self.neg_avg_act_log_likelihood / (1/self.td_err + 1/self.neg_avg_trans_log_likelihood)
         self.llt_weighted_td_err = self.td_err_sgq * self.neg_avg_trans_log_likelihood #(1 + self.td_err_sgq) * (1 + self.neg_avg_trans_log_likelihood) ** 5
         self.lla_weighted_td_err = self.td_err_sgt * self.neg_avg_act_log_likelihood
-        self.kl_weighted_td_err = self.td_err_sgq * tf.maximum(self.trans_baseline_KL_distance, 1e-9)
         # self.td_err_weighted_ll = 1/(self.ll_weighted_td_err + 1e-8)
 
         # Set up target network
@@ -237,34 +201,21 @@ class InverseDynamicsLearner():
             update_target_fn_vars.append(var_target.assign(var))
         self.update_target_fn = tf.group(*update_target_fn_vars)
 
-
-        # Set up dynamics baseline network
-        dyn_func_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=dyn_scope)
-        baseline_dyn_func_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope="dyn_baseline")
-        update_baseline_fn_vars = []
-        for var, var_target in zip(sorted(dyn_func_vars, key=lambda v: v.name),
-                                   sorted(baseline_dyn_func_vars, key=lambda v: v.name)):
-            update_baseline_fn_vars.append(var_target.assign(var))
-        self.update_baseline_fn = tf.group(*update_baseline_fn_vars)
-
         # True Qs for testing
         self.test_q_obs_t_feats_ph = tf.placeholder(tf.int32, [None, n_obs_feats], name="tqotf")
         self.test_qs_t = build_mlp(self.test_q_obs_t_feats_ph,
                                     n_act_dim, q_scope,
                                     n_layers=q_n_layers, size=q_layer_size,
                                     activation=q_layer_activation, output_activation=q_output_activation,
-                                    layer_norm=q_layer_norm, weight_norm=weight_norm, reuse=True)
+                                    layer_norm=q_layer_norm, reuse=True)
         self.true_q_err = tf.reduce_sum((self.true_qs_ph - self.test_qs_t)**2)
 
         self.loss_fns = np.array([self.neg_avg_act_log_likelihood, self.neg_avg_trans_log_likelihood,
-                         self.td_err, self.td_err_sgq, self.td_err_sgt, self.llt_weighted_td_err, self.lqsafer,
-                         self.lla_weighted_td_err, self.trans_baseline_KL_distance, self.kl_weighted_td_err,
-                         self.trans_baseline_KL]) #, self.true_q_err])
-        self.loss_fns_titles = np.array(['nall', 'ntll', 'tde', 'tde_sg_q', 'tde_sg_t', 'llt_tde', 'lqsafe', 'lla_tde',
-                                         'trans_kl_dist', 'kl_tde', 'kl']) #, 'true_q_err'])
+                         self.td_err, self.td_err_sgq, self.td_err_sgt, self.llt_weighted_td_err, self.lqsafer, self.lla_weighted_td_err]) #, self.true_q_err])
+        self.loss_fns_titles = np.array(['nall', 'ntll', 'tde', 'tde_sg_q', 'tde_sg_t', 'llt_tde', 'lqsafe', 'lla_tde']) #, 'true_q_err'])
 
-        self.log_losses = self.loss_fns[[0,1,2,5,8]]
-        self.log_loss_titles = self.loss_fns_titles[[0,1,2,5,8]]
+        self.log_losses = self.loss_fns[[0,1,2,5,6,7]]
+        self.log_loss_titles = self.loss_fns_titles[[0,1,2,5,6,7]]
 
         self.regime = None
 
@@ -403,7 +354,6 @@ class InverseDynamicsLearner():
 
                 if i % 1000 == 0:
                     print("{} Transition Loss: {}".format(i, val_loss))
-            self.sess.run(self.update_baseline_fn)
             for i in range(dyn_pretrain_iters+1):
                 demo_batch = sample_batch(rollouts, train_idxes, batch_size)
                 feed_dict = self._get_feed_dict(demo_batch, constraints)
@@ -472,7 +422,7 @@ class InverseDynamicsLearner():
                     if self.regime == "MGDA":
                         print(sol)
 
-                if train_time % tab_save_freq == 0:
+                if train_time % tab_save_freq == 0 and train_time != 0:
                     # self.mdp only used in this section, can remove that dependency if we want
                     q_vals = self.sess.run([self.test_qs_t], feed_dict={self.test_q_obs_t_feats_ph: q_states})[0]
                     print(train_time, np.max(q_vals), np.min(q_vals))
