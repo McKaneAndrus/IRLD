@@ -46,6 +46,7 @@ def default_config():
     # Setting it to higher values corresponds to "pure rationality"
     boltz_beta = 50
     mellowmax = None
+    lse_softmax = None
 
     #DEMO Config
     gamma_demo = 0.99
@@ -95,8 +96,8 @@ def kl_boi():
     dyn_layer_norm = False
     q_layer_norm = False
     alpha = 5e-3
-    losses = [0,5, 8, 4]
-    loss_weights = [1.0, 1e3, 1e5, 1e4]
+    losses = [0,5, 9, 4]
+    loss_weights = [1.0, 1e1, 1e2, 1e1]
 
 
 
@@ -104,7 +105,7 @@ def kl_boi():
 @weighted_model_train_ex.automain
 def weighted_train(_run, mdp_map, gamma, alpha, beta1, beta2, constraint_batch_size, q_n_layers, q_layer_size, q_activation,
             q_output_activation, q_layer_norm, target_update_freq, dyn_n_layers, dyn_layer_size, dyn_activation,
-            dyn_output_activation, dyn_layer_norm, boltz_beta, mellowmax, gamma_demo, temp_boltz_beta, n_demos,
+            dyn_output_activation, dyn_layer_norm, boltz_beta, mellowmax, lse_softmax, gamma_demo, temp_boltz_beta, n_demos,
             demo_time_steps, n_training_iters, dyn_pretrain_iters, batch_size, losses, loss_weights, tab_save_freq,
             clip_global, gpu_num, seed):
 
@@ -132,7 +133,7 @@ def weighted_train(_run, mdp_map, gamma, alpha, beta1, beta2, constraint_batch_s
 
     with sess.as_default():
         model = InverseDynamicsLearner(mdp, sess, mlp_params=mlp_params, boltz_beta=boltz_beta, gamma=gamma,
-                                    mellowmax=mellowmax, alpha=alpha, beta1=beta1, beta2=beta2, seed=seed) #, q_scope=q_scope, dyn_scope=dyn_scope)
+                                    mellowmax=mellowmax, lse_softmax=lse_softmax, alpha=alpha, beta1=beta1, beta2=beta2, seed=seed) #, q_scope=q_scope, dyn_scope=dyn_scope)
 
         regime_params = {"losses": losses,
                          'loss_weights':loss_weights,

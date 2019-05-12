@@ -10,10 +10,12 @@ import pickle as pkl
 
 class InverseDynamicsLearner():
 
-    def __init__(self, mdp, sess, gamma=0.99, adt=True, mellowmax=None, boltz_beta=50, mlp_params=None,
+    def __init__(self, mdp, sess, gamma=0.99, adt=True, mellowmax=None, lse_softmax=None, boltz_beta=50, mlp_params=None,
                     alpha=1e-4, beta1=0.9, beta2=0.999999, seed=0, dyn_scope="Dynamics", q_scope="Qs"):
 
         mlp_params = {} if mlp_params is None else mlp_params
+
+        assert(mellowmax is None or lse_softmax is None)
 
         self.mdp = mdp
         self.alpha = alpha
@@ -185,13 +187,13 @@ class InverseDynamicsLearner():
         #
         # constraint_q_tp1 = tf.reshape(cqtp1_misshaped, (self.constraint_batch_size_ph, n_dirs, n_act_dim))
 
-        if mellowmax is None:
-            # constraint_v_tp1 = tf.reduce_logsumexp(constraint_q_tp1, axis=2)
+        if mellowmax is not None:
+            constraint_v_tp1 = (tf.reduce_logsumexp(constraint_q_tp1 * mellowmax, axis=2) - np.log(n_act_dim)) / mellowmax
+        elif lse_softmax is not None:
+            constraint_v_tp1 = tf.reduce_logsumexp(lse_softmax * constraint_q_tp1, axis=2) / lse_softmax
+        else:
             constraint_pi_tp1 = tf.nn.softmax(constraint_q_tp1 * boltz_beta, axis=2)
             constraint_v_tp1 = tf.reduce_sum(constraint_q_tp1 * constraint_pi_tp1, axis=2)
-        else:
-            constraint_v_tp1 = (tf.reduce_logsumexp(constraint_q_tp1 * mellowmax, axis=2) - np.log(n_act_dim)) / mellowmax
-
 
 
         # bellman residual penalty error

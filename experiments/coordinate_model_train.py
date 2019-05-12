@@ -51,6 +51,7 @@ def default_config():
     # Setting it to higher values corresponds to "pure rationality"
     boltz_beta = 50
     mellowmax = None
+    lse_softmax = None
 
 
     #DEMO Config
@@ -171,13 +172,14 @@ def kl_boi():
     q_layer_norm = False
     weight_norm = True
     mellowmax = None
+    lse_softmax = None
 
-    horizons = [500, 2000, 3000]
+    horizons = [500, 1000, 1000, 3000]
     switch_frequency = 500
-    alphas = [5e-3, 2e-4, 5e-3]
-    improvement_proportions = [-np.inf, -np.inf, 0.25]  # [0.1, -1, 0.1]
+    alphas = [5e-3, 2e-4, 2e-4, 5e-3]
+    improvement_proportions = [-np.inf, -np.inf, -np.inf, 0.25]  # [0.1, -1, 0.1]
     # Config made up of ['nall', 'ntll', 'tde', 'tde_sg_q', 'tde_sg_t']
-    update_progression = [[0], [5,9], [4]]  # [[0],[5],[4],[7]] #[[4],[0,4,5]]
+    update_progression = [[0], [5], [9], [4]]  # [[0],[5],[4],[7]] #[[4],[0,4,5]]
     model_save_weights = [0.0, 0.0, 1.0, 0.0, 1.0]
 
 
@@ -185,7 +187,7 @@ def kl_boi():
 @coordinate_model_train_ex.automain
 def coordinate_train(_run, mdp_map, gamma, alpha, beta1, beta2, constraint_batch_size, q_n_layers, q_layer_size, q_activation,
             q_output_activation, q_layer_norm, target_update_freq, dyn_n_layers, dyn_layer_size, dyn_activation,
-            dyn_output_activation, dyn_layer_norm, weight_norm, boltz_beta, mellowmax, gamma_demo, temp_boltz_beta, n_demos,
+            dyn_output_activation, dyn_layer_norm, weight_norm, boltz_beta, mellowmax, lse_softmax, gamma_demo, temp_boltz_beta, n_demos,
             demo_time_steps, n_training_iters, dyn_pretrain_iters, batch_size, horizons, alphas, improvement_proportions,
             switch_frequency, initial_update, update_progression, model_save_weights, tab_save_freq, clip_global, gpu_num, seed):
 
@@ -214,7 +216,7 @@ def coordinate_train(_run, mdp_map, gamma, alpha, beta1, beta2, constraint_batch
                   'weight_norm':weight_norm}
 
     with sess.as_default():
-        model = InverseDynamicsLearner(mdp, sess, mlp_params=mlp_params, boltz_beta=boltz_beta, gamma=gamma,
+        model = InverseDynamicsLearner(mdp, sess, mlp_params=mlp_params, boltz_beta=boltz_beta, gamma=gamma, lse_softmax=lse_softmax,
                                        mellowmax=mellowmax, alpha=alpha, beta1=beta1, beta2=beta2, seed=seed)
                                                                     #, q_scope=q_scope, dyn_scope=dyn_scope)
 
