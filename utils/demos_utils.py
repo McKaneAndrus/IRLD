@@ -1,6 +1,6 @@
 import numpy as np
 from utils.learning_utils import nn_vectorize_rollouts, generate_constraints, get_rollout_indexes, sample_batch, featurize_states
-from utils.soft_q_learning import tabsoftq_gen_pol, tabsoftq_learn_Qs, vectorize_rollouts, generate_demonstrations
+from utils.tab_learning_utils import tabsoftq_gen_pol, tabsoftq_learn_Qs, vectorize_rollouts, generate_demonstrations
 import random
 
 
@@ -25,7 +25,7 @@ def clean_demos(sas_obs, adt_obs, max_noops):
     return demo_example_idxes
 
 
-def get_demos(mdp, gamma, temp_boltz_beta, n_demos, demo_time_steps, seed=0, max_noops=50):
+def get_demos(mdp, gamma, temp_boltz_beta, n_demos, demo_time_steps, seed=0, max_noops=50, tabular=False):
     np.random.seed(seed)
     random.seed(seed)
     exQs = tabsoftq_learn_Qs(mdp, gamma=gamma)
@@ -40,17 +40,14 @@ def get_demos(mdp, gamma, temp_boltz_beta, n_demos, demo_time_steps, seed=0, max
 
     good_indexes = clean_demos(sas_obs, adt_obs, max_noops)
     sas_obs, adt_obs = sas_obs[good_indexes], adt_obs[good_indexes]
+    train_idxes, val_idxes = get_rollout_indexes(sas_obs)
+
+    if tabular:
+        return sas_obs[train_idxes], adt_obs[train_idxes], sas_obs[val_idxes], adt_obs[val_idxes], exQs
+
     constraints = generate_constraints(mdp)
     nn_rollouts = nn_vectorize_rollouts(mdp, sas_obs, adt_obs)
-    train_idxes, val_idxes = get_rollout_indexes(sas_obs)
     val_demo_batch = sample_batch(nn_rollouts, val_idxes)
-
-    # True q-vals for debugging and comparison purposes
-    true_qs = tabsoftq_learn_Qs(mdp, gamma=gamma)
-    # sa = np.transpose(
-    #     [np.tile(np.arange(mdp.num_states), mdp.num_actions), np.repeat(np.arange(mdp.num_actions), mdp.num_states)])
-    # states, acts = sa[:, 0], sa[:, 1]
-    # true_qs = Qs[states, acts]
 
     # Preprocessing for training update visualizations
     tts = np.arange(mdp.tile_types)
@@ -59,4 +56,4 @@ def get_demos(mdp, gamma, temp_boltz_beta, n_demos, demo_time_steps, seed=0, max
     adt_samples = adt_samples[adt_samples[:, 0].argsort()]
     states = featurize_states(mdp, np.arange(mdp.num_states))
 
-    return constraints, nn_rollouts, train_idxes, val_demo_batch, true_qs, states, adt_samples
+    return constraints, nn_rollouts, train_idxes, val_demo_batch, exQs, states, adt_samples

@@ -229,7 +229,8 @@ class InverseDynamicsLearner():
         self.lqsafer = self.neg_avg_act_log_likelihood / (1/self.td_err + 1/self.neg_avg_trans_log_likelihood)
         self.llt_weighted_td_err = self.td_err_sgq * self.neg_avg_trans_log_likelihood #(1 + self.td_err_sgq) * (1 + self.neg_avg_trans_log_likelihood) ** 5
         self.lla_weighted_td_err = self.td_err_sgt * self.neg_avg_act_log_likelihood
-        self.kl_weighted_td_err = self.td_err * tf.maximum(self.bidirectional_KL, 1e-7)
+        self.kl_weighted_td_err = self.td_err_sgq * tf.maximum(self.bidirectional_KL, 1e-7)
+        self.kl_combo = self.td_err * tf.maximum(self.bidirectional_KL, 1e-7) * self.neg_avg_act_log_likelihood
         # self.td_err_weighted_ll = 1/(self.ll_weighted_td_err + 1e-8)
 
         # Set up target network
@@ -263,7 +264,7 @@ class InverseDynamicsLearner():
         self.loss_fns = np.array([self.neg_avg_act_log_likelihood, self.neg_avg_trans_log_likelihood,
                          self.td_err, self.td_err_sgq, self.td_err_sgt, self.llt_weighted_td_err, self.lqsafer,
                          self.lla_weighted_td_err, self.bidirectional_KL, self.kl_weighted_td_err,
-                         self.trans_baseline_KL]) #, self.true_q_err])
+                         self.kl_combo]) #, self.true_q_err])
         self.loss_fns_titles = np.array(['nall', 'ntll', 'tde', 'tde_sg_q', 'tde_sg_t', 'llt_tde', 'lqsafe', 'lla_tde',
                                          'trans_kl_dist', 'kl_tde', 'kl']) #, 'true_q_err'])
 
@@ -428,6 +429,34 @@ class InverseDynamicsLearner():
 
             for train_time in range(n_training_iters):
 
+                if train_time % self.validation_freq == 0:
+                    val_loss_data = self.sess.run(list(self.log_losses), feed_dict=val_feed)
+                    for i, loss in enumerate(val_loss_data):
+                        metric_name = "val_" + self.log_loss_titles[i]
+                        full_train_logs[metric_name] += [loss]
+                        if _run is not None:
+                            _run.log_scalar(metric_name, loss, train_time)
+
+                if train_time % 500 == 0 and verbose:
+                    print(str(train_time) + "\t" + "\t".join([str(k) + ": " +
+                                                str(round(full_train_logs["val_" + k][-1],7)) for k in self.log_loss_titles]))
+                    # if self.regime == "MGDA":
+                    #     print(sol)
+
+                if train_time % tab_save_freq == 0:
+                    # self.mdp only used in this section, can remove that dependency if we want
+                    q_vals = self.sess.run([self.test_qs_t], feed_dict={self.test_q_obs_t_feats_ph: q_states})[0]
+                    print(train_time, np.max(q_vals), np.min(q_vals))
+                    adt_logits = self.sess.run([self.pred_obs], feed_dict={self.demo_tile_t_ph: adt_samples[:,0][np.newaxis].T,
+                                                                    self.demo_act_t_ph: adt_samples[:,1][np.newaxis].T})[0]
+                    adt_probs = softmax(adt_logits)
+                    adt_probs = adt_probs.reshape(self.mdp.tile_types, self.mdp.num_actions, self.mdp.num_directions)
+                    pkl.dump(q_vals, open(os.path.join(tab_model_out_dir, 'q_vals_{}.pkl'.format(train_time)), 'wb'))
+                    pkl.dump(adt_probs, open(os.path.join(tab_model_out_dir, 'adt_probs_{}.pkl'.format(train_time)), 'wb'))
+                    if self.regime == "coordinate":
+                        _run.log_scalar("coordinate_regime", self.loss_progression_titles[self.curr_update_index], train_time)
+
+
                 demo_batch = sample_batch(rollouts, train_idxes, batch_size)
                 feed_dict = self._get_feed_dict(demo_batch, constraints, true_qs=true_qs)
 
@@ -462,33 +491,6 @@ class InverseDynamicsLearner():
                 # for i, loss in enumerate(loss_data):
                 #     full_train_logs[self.log_loss_titles[i]] += [loss]
 
-                if train_time % self.validation_freq == 0:
-                    val_loss_data = self.sess.run(list(self.log_losses), feed_dict=val_feed)
-                    for i, loss in enumerate(val_loss_data):
-                        metric_name = "val_" + self.log_loss_titles[i]
-                        full_train_logs[metric_name] += [loss]
-                        if _run is not None:
-                            _run.log_scalar(metric_name, loss, train_time)
-
-                if train_time % 500 == 0 and verbose:
-                    print(str(train_time) + "\t" + "\t".join([str(k) + ": " +
-                                                str(round(full_train_logs["val_" + k][-1],7)) for k in self.log_loss_titles]))
-                    if self.regime == "MGDA":
-                        print(sol)
-
-                if train_time % tab_save_freq == 0:
-                    # self.mdp only used in this section, can remove that dependency if we want
-                    q_vals = self.sess.run([self.test_qs_t], feed_dict={self.test_q_obs_t_feats_ph: q_states})[0]
-                    print(train_time, np.max(q_vals), np.min(q_vals))
-                    adt_logits = self.sess.run([self.pred_obs], feed_dict={self.demo_tile_t_ph: adt_samples[:,0][np.newaxis].T,
-                                                                    self.demo_act_t_ph: adt_samples[:,1][np.newaxis].T})[0]
-                    adt_probs = softmax(adt_logits)
-                    adt_probs = adt_probs.reshape(self.mdp.tile_types, self.mdp.num_actions, self.mdp.num_directions)
-                    pkl.dump(q_vals, open(os.path.join(tab_model_out_dir, 'q_vals_{}.pkl'.format(train_time)), 'wb'))
-                    pkl.dump(adt_probs, open(os.path.join(tab_model_out_dir, 'adt_probs_{}.pkl'.format(train_time)), 'wb'))
-                    if self.regime == "coordinate":
-                        _run.log_scalar("coordinate_regime", self.loss_progression_titles[self.curr_update_index], train_time)
-
                 # Check for update_switching
                 if self.regime == "coordinate" and train_time % self.switch_frequency and self._update_switcher(total_loss):
                     total_loss = []
@@ -515,6 +517,34 @@ class InverseDynamicsLearner():
                 if train_time % target_update_freq == 0:
                     self.sess.run(self.update_target_fn)
 
+            # Do some Q-learning post-touches
+            for i in range(int(dyn_pretrain_iters/4)):
+                demo_batch = sample_batch(rollouts, train_idxes, batch_size)
+                feed_dict = self._get_feed_dict(demo_batch, constraints)
+                cqs, _ = self.sess.run([self.constraint_qs_t, temp_update2], feed_dict=feed_dict)
+
+                if i % self.validation_freq == 0:
+                    val_loss = self.sess.run(self.td_err_sgt, feed_dict=val_feed)
+
+                if i % target_update_freq == 0:
+                    self.sess.run(self.update_target_fn)
+
+                if i % 1000 == 0:
+                    print("{} Q-Learning Loss: {}".format(i, val_loss))
+                    print(np.max(cqs), np.min(cqs))
+
+                if i % tab_save_freq == 0:
+                    # self.mdp only used in this section, can remove that dependency if we want
+                    q_vals = self.sess.run([self.test_qs_t], feed_dict={self.test_q_obs_t_feats_ph: q_states})[0]
+                    print(train_time, np.max(q_vals), np.min(q_vals))
+                    adt_logits = self.sess.run([self.pred_obs], feed_dict={self.demo_tile_t_ph: adt_samples[:,0][np.newaxis].T,
+                                                                    self.demo_act_t_ph: adt_samples[:,1][np.newaxis].T})[0]
+                    adt_probs = softmax(adt_logits)
+                    adt_probs = adt_probs.reshape(self.mdp.tile_types, self.mdp.num_actions, self.mdp.num_directions)
+                    pkl.dump(q_vals, open(os.path.join(tab_model_out_dir, 'q_vals_{}.pkl'.format(train_time)), 'wb'))
+                    pkl.dump(adt_probs, open(os.path.join(tab_model_out_dir, 'adt_probs_{}.pkl'.format(train_time)), 'wb'))
+                    if self.regime == "coordinate":
+                        _run.log_scalar("coordinate_regime", "Q_tuning", train_time + i)
 
 
         except KeyboardInterrupt:

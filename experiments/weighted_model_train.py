@@ -95,9 +95,9 @@ def kl_boi():
 
     dyn_layer_norm = False
     q_layer_norm = False
-    alpha = 5e-3
-    losses = [0, 9, 3, 4]
-    loss_weights = [1.0, 1e2, 1.0, 1e1]
+    alpha = 1e-3
+    losses = [7, 9, 0]
+    loss_weights = [1.0, 1.0, 1.0]
 
 
 
@@ -145,7 +145,7 @@ def weighted_train(_run, mdp_map, gamma, alpha, beta1, beta2, constraint_batch_s
                                                                                                         temp_boltz_beta,
                                                                                                         n_demos,
                                                                                                         demo_time_steps,
-                                                                                                     seed)
+                                                                                                        seed)
 
         out_dir = os.path.join("logs", "models", str(_run._id))
 
