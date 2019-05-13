@@ -97,7 +97,7 @@ def tabsoftq_T_grad_iter(mdp, T_thetas, Q, R, gamma, boltzmann=10000, maxiter=50
 
     T = mdp.adt_trans_to_sas_trans(Tps)
 
-    V = logsumexp(Q * boltzmann, axis=1) * boltzmann
+    V = logsumexp(Q * boltzmann, axis=1) / boltzmann
     T_grad = np.zeros((nS, nA, T_theta_dim))
     for s in range(nS):
         t = mdp.get_tile_type(s)
@@ -147,7 +147,7 @@ def eval_trans_likelihood(Tps, adt_obs):
     ll = 0.0
     for obs in adt_obs:
         a, d, t, = obs
-        l = np.log(Tps[a, d, t] + 1e-12)
+        l = np.log(Tps[a, d, t])
         ll += l
     return ll
 

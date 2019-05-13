@@ -55,3 +55,6 @@ def generate_constraints(mdp):
 
     return feat_states, acts_array, rewards, feat_next_states, tiles
 
+def logarithmic_schedule(start, end, duration):
+    return lambda t: np.power(10, start + (end-start) * min(t/duration, 1.0))
+

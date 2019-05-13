@@ -229,8 +229,9 @@ class InverseDynamicsLearner():
         self.lqsafer = self.neg_avg_act_log_likelihood / (1/self.td_err + 1/self.neg_avg_trans_log_likelihood)
         self.llt_weighted_td_err = self.td_err_sgq * self.neg_avg_trans_log_likelihood #(1 + self.td_err_sgq) * (1 + self.neg_avg_trans_log_likelihood) ** 5
         self.lla_weighted_td_err = self.td_err_sgt * self.neg_avg_act_log_likelihood
-        self.kl_weighted_td_err = self.td_err_sgq * tf.maximum(self.bidirectional_KL, 1e-7)
-        self.kl_combo = self.td_err * tf.maximum(self.bidirectional_KL, 1e-7) * self.neg_avg_act_log_likelihood
+        self.kl_ball_ph = tf.placeholder(tf.float32, (), name='kl_ball')
+        self.kl_weighted_td_err = self.td_err_sgq * tf.maximum(self.bidirectional_KL, self.kl_ball_ph)
+        self.kl_combo = self.td_err * tf.maximum(self.bidirectional_KL, self.kl_ball_ph) * self.neg_avg_act_log_likelihood
         # self.td_err_weighted_ll = 1/(self.ll_weighted_td_err + 1e-8)
 
         # Set up target network
@@ -272,6 +273,8 @@ class InverseDynamicsLearner():
         self.log_loss_titles = self.loss_fns_titles[[0,1,2,5,8]]
 
         self.regime = None
+        self.validation_freq = None
+        self.kl_ball_schedule = None
 
 
     def initialize_training_regime(self, regime, regime_params, validation_freq=20):
@@ -283,6 +286,7 @@ class InverseDynamicsLearner():
 
         self.regime = regime
         self.validation_freq = validation_freq
+        self.kl_ball_schedule = regime_params.get('kl_ball_schedule', None)
 
         if regime == "weighted":
             losses = regime_params['losses']
@@ -460,6 +464,10 @@ class InverseDynamicsLearner():
                 demo_batch = sample_batch(rollouts, train_idxes, batch_size)
                 feed_dict = self._get_feed_dict(demo_batch, constraints, true_qs=true_qs)
 
+                if self.kl_ball_schedule is not None:
+                    feed_dict[self.kl_ball_ph] = self.kl_ball_schedule(train_time)
+                    val_feed[self.kl_ball_ph] = self.kl_ball_schedule(train_time)
+
                 if self.regime == "weighted":
                     # loss_data = self.sess.run(list(self.log_losses) + [self.update], feed_dict=feed_dict)[:-1]
                     self.sess.run(self.update, feed_dict=feed_dict)
@@ -580,19 +588,19 @@ class InverseDynamicsLearner():
 
         if self.prev_bests[self.curr_update_index] == np.inf:
             self.prev_bests[self.curr_update_index] = (sum(losses[:running_dist])/running_dist)
-            return False
-
 
         recent_loss = (sum(losses[-running_dist:])/running_dist)
-        improvement = 1 - recent_loss/(self.prev_bests[self.curr_update_index] + 1e-12)
-        switch = improvement > self.improvement_proportions[self.curr_update_index]
+        improvement = self.prev_bests[self.curr_update_index] / (recent_loss + 1e-12) - 1
+        switch = improvement < self.improvement_proportions[self.curr_update_index]
 
         if switch:
-            self.prev_bests[self.curr_update_index] = recent_loss
+            self.prev_bests[self.curr_update_index] = np.inf
             self.curr_update_index = (self.curr_update_index + 1) % len(self.update_progression)
             print("Loss improvement at {}, switching to loss config {}".format(improvement, self.curr_update_index))
             self.curr_loss = self.loss_progression[self.curr_update_index]
             self.curr_update = self.update_progression[self.curr_update_index]
+        else:
+            self.prev_bests[self.curr_update_index] = recent_loss
 
         return switch
 

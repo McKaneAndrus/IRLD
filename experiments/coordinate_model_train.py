@@ -10,6 +10,7 @@ from utils.experiment_utils import current_milli_time
 from utils.models import InverseDynamicsLearner
 from envs.mars_map_gen import make_map, get_mdp_from_map
 import numpy as np
+from utils.learning_utils import logarithmic_schedule
 
 coordinate_model_train_ex = Experiment("coordinate_model_train")
 coordinate_model_train_ex.observers.append(FileStorageObserver.create('logs/sacred'))
@@ -173,11 +174,14 @@ def kl_boi():
     weight_norm = True
     mellowmax = None
     lse_softmax = None
+    n_training_iters = 200000
+    kl_ball_schedule = logarithmic_schedule(-1.0, -7.0, n_training_iters)
+    # kl_ball_schedule = lambda t: 2e-2
 
-    horizons = [500, 1000, 3000]
+    horizons = [500, 1000, 4000]
     switch_frequency = 500
     alphas = [5e-3, 1e-3, 5e-3]
-    improvement_proportions = [-np.inf, -np.inf, 0.25]  # [0.1, -1, 0.1]
+    improvement_proportions = [0.1, 0.1, 0.01]  # [0.1, -1, 0.1]
     # Config made up of ['nall', 'ntll', 'tde', 'tde_sg_q', 'tde_sg_t']
     update_progression = [[0], [9], [4]]  # [[0],[5],[4],[7]] #[[4],[0,4,5]]
     model_save_weights = [0.0, 0.0, 1.0, 0.0, 1.0]
@@ -204,7 +208,7 @@ def kl_combo_boi():
 def coordinate_train(_run, mdp_map, gamma, alpha, beta1, beta2, constraint_batch_size, q_n_layers, q_layer_size, q_activation,
             q_output_activation, q_layer_norm, target_update_freq, dyn_n_layers, dyn_layer_size, dyn_activation,
             dyn_output_activation, dyn_layer_norm, weight_norm, boltz_beta, mellowmax, lse_softmax, gamma_demo, temp_boltz_beta, n_demos,
-            demo_time_steps, n_training_iters, dyn_pretrain_iters, batch_size, horizons, alphas, improvement_proportions,
+            demo_time_steps, n_training_iters, dyn_pretrain_iters, batch_size, horizons, alphas, improvement_proportions, kl_ball_schedule,
             switch_frequency, initial_update, update_progression, model_save_weights, tab_save_freq, clip_global, gpu_num, seed):
 
     os_setup(gpu_num)
@@ -243,7 +247,8 @@ def coordinate_train(_run, mdp_map, gamma, alpha, beta1, beta2, constraint_batch
                          'update_progression':update_progression,
                          'model_save_weights': model_save_weights,
                          'alphas': alphas,
-                         'clip_global':clip_global}
+                         'clip_global':clip_global,
+                         'kl_ball_schedule': kl_ball_schedule}
 
         model.initialize_training_regime("coordinate", regime_params=regime_params)
 
