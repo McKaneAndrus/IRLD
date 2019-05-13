@@ -9,6 +9,7 @@ from utils.demos_utils import get_demos
 from utils.experiment_utils import current_milli_time
 from utils.models import InverseDynamicsLearner
 from envs.mars_map_gen import make_map, get_mdp_from_map
+from utils.learning_utils import logarithmic_schedule
 
 weighted_model_train_ex = Experiment("weighted_model_train")
 weighted_model_train_ex.observers.append(FileStorageObserver.create('logs/sacred'))
@@ -93,11 +94,12 @@ def temperamental_boi():
 @weighted_model_train_ex.named_config
 def kl_boi():
 
-    dyn_layer_norm = False
-    q_layer_norm = False
+    n_training_iters = 200000
+    kl_ball_schedule = logarithmic_schedule(-1.0, -5.0, n_training_iters)
+
     alpha = 1e-3
-    losses = [7, 9, 0]
-    loss_weights = [1.0, 1.0, 1.0]
+    losses = [4, 10]
+    loss_weights = [1.0, 1.0]
 
 
 
@@ -106,7 +108,7 @@ def kl_boi():
 def weighted_train(_run, mdp_map, gamma, alpha, beta1, beta2, constraint_batch_size, q_n_layers, q_layer_size, q_activation,
             q_output_activation, q_layer_norm, target_update_freq, dyn_n_layers, dyn_layer_size, dyn_activation,
             dyn_output_activation, dyn_layer_norm, boltz_beta, mellowmax, lse_softmax, gamma_demo, temp_boltz_beta, n_demos,
-            demo_time_steps, n_training_iters, dyn_pretrain_iters, batch_size, losses, loss_weights, tab_save_freq,
+            demo_time_steps, n_training_iters, dyn_pretrain_iters, batch_size, losses, loss_weights, tab_save_freq, kl_ball_schedule,
             clip_global, gpu_num, seed):
 
     os_setup(gpu_num)
@@ -137,7 +139,8 @@ def weighted_train(_run, mdp_map, gamma, alpha, beta1, beta2, constraint_batch_s
 
         regime_params = {"losses": losses,
                          'loss_weights':loss_weights,
-                         'clip_global':clip_global}
+                         'clip_global':clip_global,
+                         'kl_ball_schedule':kl_ball_schedule}
 
         model.initialize_training_regime("weighted", regime_params=regime_params)
 

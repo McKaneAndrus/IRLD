@@ -227,11 +227,12 @@ class InverseDynamicsLearner():
         # self.best_ntll = 1.0
         # self.delta_ll_td_err = self.td_err * self.neg_avg_act_log_likelihood * tf.minimum(self.neg_avg_trans_log_likelihood - self.best_ntll, 1e-12)
         self.lqsafer = self.neg_avg_act_log_likelihood / (1/self.td_err + 1/self.neg_avg_trans_log_likelihood)
+        self.br_ball_ph = tf.placeholder(tf.float32, (), name='br_ball')
         self.llt_weighted_td_err = self.td_err_sgq * self.neg_avg_trans_log_likelihood #(1 + self.td_err_sgq) * (1 + self.neg_avg_trans_log_likelihood) ** 5
         self.lla_weighted_td_err = self.td_err_sgt * self.neg_avg_act_log_likelihood
         self.kl_ball_ph = tf.placeholder(tf.float32, (), name='kl_ball')
         self.kl_weighted_td_err = self.td_err_sgq * tf.maximum(self.bidirectional_KL, self.kl_ball_ph)
-        self.kl_combo = self.td_err * tf.maximum(self.bidirectional_KL, self.kl_ball_ph) * self.neg_avg_act_log_likelihood
+        self.kl_combo = tf.maximum(self.td_err, self.br_ball_ph) * tf.maximum(self.bidirectional_KL, self.kl_ball_ph) * self.neg_avg_act_log_likelihood
         # self.td_err_weighted_ll = 1/(self.ll_weighted_td_err + 1e-8)
 
         # Set up target network
@@ -400,6 +401,9 @@ class InverseDynamicsLearner():
 
         val_feed = self._get_feed_dict(val_demo_batch, constraints, true_qs=true_qs)
 
+        if self.kl_ball_schedule is not None:
+            val_feed[self.kl_ball_ph] = self.kl_ball_schedule(train_time)
+
         if dyn_pretrain_iters > 0:
             print("Pretraining the dynamics model with baseline method.")
             for i in range(int(dyn_pretrain_iters/2)):
@@ -502,25 +506,6 @@ class InverseDynamicsLearner():
                 # Check for update_switching
                 if self.regime == "coordinate" and train_time % self.switch_frequency and self._update_switcher(total_loss):
                     total_loss = []
-                    model_score = self.sess.run(self.model_save_loss, feed_dict=val_feed)
-                    if model_score < best_model_score:
-                        print("Current model ({}) is better than previous best ({})".format(model_score, best_model_score))
-                        # Save as file
-                        q_vals = self.sess.run([self.test_qs_t], feed_dict={self.test_q_obs_t_feats_ph: q_states})[0]
-                        adt_logits = \
-                        self.sess.run([self.pred_obs], feed_dict={self.demo_tile_t_ph: adt_samples[:, 0][np.newaxis].T,
-                                                                  self.demo_act_t_ph: adt_samples[:, 1][np.newaxis].T})[0]
-                        adt_probs = softmax(adt_logits)
-                        adt_probs = adt_probs.reshape(self.mdp.tile_types, self.mdp.num_actions,
-                                                      self.mdp.num_directions)
-                        pkl.dump(q_vals, open(os.path.join(tab_model_out_dir, 'final_q_vals.pkl'), 'wb'))
-                        pkl.dump(adt_probs, open(os.path.join(tab_model_out_dir, 'final_adt_probs.pkl'), 'wb'))
-
-                        pkl.dump(self.mdp, open(os.path.join(out_dir, 'mdp.pkl'), 'wb'))
-
-                        save_tf_vars(self.sess, self.q_scope, q_f)
-                        save_tf_vars(self.sess, self.dyn_scope, dyn_f)
-                        best_model_score = model_score
 
                 if train_time % target_update_freq == 0:
                     self.sess.run(self.update_target_fn)
@@ -558,12 +543,6 @@ class InverseDynamicsLearner():
         except KeyboardInterrupt:
             print("Experiment Interrupted at timestep {}".format(train_time))
             pass
-
-        if self.regime == "coordinate":
-            if best_model_score == np.inf:
-                save_tf_vars(self.sess, self.q_scope, q_f)
-                save_tf_vars(self.sess, self.dyn_scope, dyn_f)
-            return q_f, dyn_f if _run is None else q_f, dyn_f, full_train_logs
 
         # Save as file
         q_vals = self.sess.run([self.test_qs_t], feed_dict={self.test_q_obs_t_feats_ph: q_states})[0]

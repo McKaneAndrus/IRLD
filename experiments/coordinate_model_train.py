@@ -172,10 +172,10 @@ def kl_boi():
     dyn_layer_norm = False
     q_layer_norm = False
     weight_norm = True
-    mellowmax = None
+    mellowmax = 50
     lse_softmax = None
     n_training_iters = 200000
-    kl_ball_schedule = logarithmic_schedule(-1.0, -7.0, n_training_iters)
+    kl_ball_schedule = logarithmic_schedule(-1.0, -5.0, n_training_iters)
     # kl_ball_schedule = lambda t: 2e-2
 
     horizons = [500, 1000, 4000]
