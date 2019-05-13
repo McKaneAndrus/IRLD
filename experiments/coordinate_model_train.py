@@ -58,7 +58,7 @@ def default_config():
     #DEMO Config
     gamma_demo = 0.99
     n_demos = 200
-    demo_time_steps = 40
+    demo_time_steps = 30
     temp_boltz_beta = 50
 
 
