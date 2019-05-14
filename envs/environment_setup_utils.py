@@ -13,14 +13,26 @@ tile_map = [
         "1FFFFFFF2"
     ]
 
+# tile_map2 = [
+#         "FFFFFFFF1",
+#         "FFFFFFFFF",
+#         "FFFFUFFFF",
+#         "FFFUUUFSF",
+#         "FFUU3UUFF",
+#         "FSFUUUFSF",
+#         "FSFFUFFSF",
+#         "FFFSSSFFF",
+#         "1FFFFFFF2"
+#     ]
+#     
 tile_map2 = [
-        "FFFFFFFF1",
-        "FFFFFFFFF",
+        "2FFFFFFF1",
+        "FFFSSSFFF",
         "FFFFUFFFF",
-        "FFFUUUFSF",
-        "FFUU3UUFF",
         "FSFUUUFSF",
-        "FSFFUFFSF",
+        "FSUUUUUSF",
+        "FSFUUUFSF",
+        "FFFFUFFFF",
         "FFFSSSFFF",
         "1FFFFFFF2"
     ]
