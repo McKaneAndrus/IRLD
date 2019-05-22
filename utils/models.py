@@ -73,13 +73,19 @@ class InverseDynamicsLearner():
                              n_act_dim, q_scope,
                              n_layers=q_n_layers, size=q_layer_size,
                              activation=q_layer_activation, output_activation=q_output_activation,
-                             layer_norm=q_layer_norm, weight_norm=weight_norm) * boltz_beta
+                             layer_norm=q_layer_norm, weight_norm=weight_norm)
 
-        demo_v_t = tf.reduce_logsumexp(demo_q_t, axis=1)
+        pi_demo_q_t = build_mlp(self.demo_obs_t_feats_ph,
+                             n_act_dim, "pi",
+                             n_layers=q_n_layers, size=q_layer_size,
+                             activation=q_layer_activation, output_activation=q_output_activation,
+                             layer_norm=q_layer_norm, weight_norm=weight_norm)
+
+        demo_v_t = tf.reduce_logsumexp(demo_q_t * boltz_beta, axis=1)
 
         action_indexes = tf.concat([tf.expand_dims(tf.range(self.demo_batch_size_ph), 1), self.demo_act_t_ph], axis=1)
 
-        act_log_likelihoods = tf.gather_nd(demo_q_t, action_indexes) - demo_v_t
+        act_log_likelihoods = tf.gather_nd(demo_q_t * boltz_beta, action_indexes) - demo_v_t
 
         self.neg_avg_act_log_likelihood = -tf.reduce_mean(act_log_likelihoods)
 
@@ -153,6 +159,14 @@ class InverseDynamicsLearner():
 
         constraint_q_t = tf.gather_nd(self.constraint_qs_t, ca_indexes)
 
+        self.pi_constraint_qs_t = build_mlp(self.constraint_obs_t_feats_ph,
+                                    n_act_dim, "pi",
+                                    n_layers=q_n_layers, size=q_layer_size,
+                                    activation=q_layer_activation, output_activation=q_output_activation,
+                                    layer_norm=q_layer_norm, weight_norm=weight_norm, reuse=True)
+
+        pi_constraint_q_t = tf.gather_nd(self.pi_constraint_qs_t, ca_indexes)
+
         # Predicted constraint next state given inv dyns
         if adt:
             constraint_pred_obs = build_mlp(
@@ -181,13 +195,24 @@ class InverseDynamicsLearner():
 
         constraint_q_tp1 = tf.reshape(tf.stop_gradient(cqtp1_misshaped), (self.constraint_batch_size_ph, n_dirs, n_act_dim))
 
-        # cqtp1_misshaped = build_mlp(constraint_sprimes_reshaped,
-        #                             n_act_dim, scope=q_scope,
-        #                             n_layers=q_n_layers, size=q_layer_size,
-        #                             activation=q_layer_activation, output_activation=q_output_activation,
-        #                             reuse=True)
-        #
-        # constraint_q_tp1 = tf.reshape(cqtp1_misshaped, (self.constraint_batch_size_ph, n_dirs, n_act_dim))
+        # Q-values used to calculate 'V' in the bellman-residual for the observed Q-fn
+        pi_cqtp1_misshaped = build_mlp(constraint_sprimes_reshaped,
+                                             n_act_dim, scope="pi_target",
+                                             n_layers=q_n_layers, size=q_layer_size,
+                                             activation=q_layer_activation, output_activation=q_output_activation,
+                                             layer_norm=q_layer_norm, weight_norm=weight_norm, reuse=False)
+
+        pi_constraint_q_tp1 = tf.reshape(tf.stop_gradient(pi_cqtp1_misshaped), (self.constraint_batch_size_ph, n_dirs, n_act_dim))
+
+        # Q-values used to calculate \pi_O, the policy learned from the demonstrations
+        observed_pol_cqtp1_misshaped = build_mlp(constraint_sprimes_reshaped,
+                                             n_act_dim, scope="observed",
+                                             n_layers=q_n_layers, size=q_layer_size,
+                                             activation=q_layer_activation, output_activation=q_output_activation,
+                                             layer_norm=q_layer_norm, weight_norm=weight_norm, reuse=False)
+
+        observed_pol_q_tp1 = tf.reshape(tf.stop_gradient(observed_pol_cqtp1_misshaped), (self.constraint_batch_size_ph, n_dirs, n_act_dim))
+
 
         if mellowmax is not None:
             constraint_v_tp1 = (tf.reduce_logsumexp(constraint_q_tp1 * mellowmax, axis=2) - np.log(n_act_dim)) / mellowmax
@@ -198,42 +223,41 @@ class InverseDynamicsLearner():
             constraint_v_tp1 = tf.reduce_sum(constraint_q_tp1 * constraint_pi_tp1, axis=2)
 
 
+        observed_pol_tp1 = tf.nn.softmax(observed_pol_q_tp1 * boltz_beta, axis=2)
+        constraint_pi_v_tp1 = tf.reduce_sum(pi_constraint_q_tp1 * observed_pol_tp1, axis=2)
+
         # bellman residual penalty error
         constraint_pred_probs = tf.nn.softmax(constraint_pred_obs, axis=1)
         constraint_next_vs = tf.multiply(constraint_v_tp1, constraint_pred_probs)
         target_t = self.constraint_rew_t_ph + gamma * tf.reduce_sum(constraint_next_vs, axis=1)
         self.td_err = tf.reduce_mean((constraint_q_t - target_t) ** 2)
 
+        # bellman residual for observed policy penalty error
+        constraint_pi_next_vs = tf.multiply(constraint_pi_v_tp1, constraint_pred_probs)
+        pi_target_t = self.constraint_rew_t_ph + gamma * tf.reduce_sum(constraint_pi_next_vs, axis=1)
+        self.pi_td_err = tf.reduce_mean((pi_constraint_q_t - pi_target_t) ** 2)
 
         # bellman residual penalty error with a stop gradient on transitions to prevent the bellman update from
         # 'hacking' the transition function to overly explain the demonstrations. This happens a lot early on before the
         # Q-values have obtained much meaning
-
         constraint_next_vs_sgt = tf.multiply(constraint_v_tp1, tf.stop_gradient(constraint_pred_probs))
         target_t_sgt = self.constraint_rew_t_ph + gamma * tf.reduce_sum(constraint_next_vs_sgt, axis=1)
         self.td_err_sgt = tf.reduce_mean((constraint_q_t - target_t_sgt) ** 2)
 
         # bellman residual penalty error with a stop gradient on q-fn to allow the bellman residual loss to update
         # differences in learned q-vals w.r.t. the dynamics model
-
         constraint_next_vs_sgq = tf.multiply(tf.stop_gradient(constraint_v_tp1), constraint_pred_probs)
         target_t_sgq = self.constraint_rew_t_ph + gamma * tf.reduce_sum(constraint_next_vs_sgq, axis=1)
         self.td_err_sgq = tf.reduce_mean((tf.stop_gradient(constraint_q_t) - target_t_sgq) ** 2)
 
-        #KL-divergence for observed transitions
-
-
-        #Experimental
-        # self.best_ntll = 1.0
-        # self.delta_ll_td_err = self.td_err * self.neg_avg_act_log_likelihood * tf.minimum(self.neg_avg_trans_log_likelihood - self.best_ntll, 1e-12)
-        self.lqsafer = self.neg_avg_act_log_likelihood / (1/self.td_err + 1/self.neg_avg_trans_log_likelihood)
-        self.br_ball_ph = tf.placeholder(tf.float32, (), name='br_ball')
-        self.llt_weighted_td_err = self.td_err_sgq * self.neg_avg_trans_log_likelihood #(1 + self.td_err_sgq) * (1 + self.neg_avg_trans_log_likelihood) ** 5
-        self.lla_weighted_td_err = self.td_err_sgt * self.neg_avg_act_log_likelihood
-        self.kl_ball_ph = tf.placeholder(tf.float32, (), name='kl_ball')
-        self.kl_weighted_td_err = self.td_err_sgq * tf.maximum(self.bidirectional_KL, self.kl_ball_ph)
-        self.kl_combo = tf.maximum(self.td_err, self.br_ball_ph) * tf.maximum(self.bidirectional_KL, self.kl_ball_ph) * self.neg_avg_act_log_likelihood
-        # self.td_err_weighted_ll = 1/(self.ll_weighted_td_err + 1e-8)
+        # bellman residual for observed policy penalty error
+        constraint_pi_next_vs_sgt = tf.multiply(constraint_pi_v_tp1, tf.stop_gradient(constraint_pred_probs))
+        pi_target_t_sgt = self.constraint_rew_t_ph + gamma * tf.reduce_sum(constraint_pi_next_vs_sgt, axis=1)
+        self.pi_td_err_sgt = tf.reduce_mean((pi_constraint_q_t - pi_target_t_sgt) ** 2)
+        # bellman residual for observed policy penalty error
+        constraint_pi_next_vs_sgq = tf.multiply(tf.stop_gradient(constraint_pi_v_tp1), constraint_pred_probs)
+        pi_target_t_sgq = self.constraint_rew_t_ph + gamma * tf.reduce_sum(constraint_pi_next_vs_sgq, axis=1)
+        self.pi_td_err_sgq = tf.reduce_mean((tf.stop_gradient(pi_constraint_q_t) - pi_target_t_sgq) ** 2)
 
         # Set up target network
         q_func_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=q_scope)
@@ -244,6 +268,23 @@ class InverseDynamicsLearner():
             update_target_fn_vars.append(var_target.assign(var))
         self.update_target_fn = tf.group(*update_target_fn_vars)
 
+        # Set up pi target network
+        pi_func_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope="pi")
+        pi_target_func_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope="pi_target")
+        update_pi_target_fn_vars = []
+        for var, var_target in zip(sorted(pi_func_vars, key=lambda v: v.name),
+                                   sorted(pi_target_func_vars, key=lambda v: v.name)):
+            update_pi_target_fn_vars.append(var_target.assign(var))
+        self.update_pi_target_fn = tf.group(*update_pi_target_fn_vars)
+
+        # Set up observed policy network
+        q_func_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=q_scope)
+        observed_q_func_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope="observed")
+        update_observed_fn_vars = []
+        for var, var_target in zip(sorted(q_func_vars, key=lambda v: v.name),
+                                   sorted(observed_q_func_vars, key=lambda v: v.name)):
+            update_observed_fn_vars.append(var_target.assign(var))
+        self.update_observed_policy_fn = tf.group(*update_observed_fn_vars)
 
         # Set up dynamics baseline network
         dyn_func_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=dyn_scope)
@@ -253,6 +294,27 @@ class InverseDynamicsLearner():
                                    sorted(baseline_dyn_func_vars, key=lambda v: v.name)):
             update_baseline_fn_vars.append(var_target.assign(var))
         self.update_baseline_fn = tf.group(*update_baseline_fn_vars)
+
+        #KL-divergence for observed transitions
+
+
+        #Experimental
+        target_pi_demo_q_t = build_mlp(self.demo_obs_t_feats_ph,
+                                n_act_dim, "pi_target",
+                                n_layers=q_n_layers, size=q_layer_size,
+                                activation=q_layer_activation, output_activation=q_output_activation,
+                                layer_norm=q_layer_norm, weight_norm=weight_norm, reuse=True)
+
+        self.learned_observed_q_diff = tf.norm(demo_q_t - tf.stop_gradient(target_pi_demo_q_t), ord=2)
+        self.lqsafer = self.neg_avg_act_log_likelihood / (1/self.td_err + 1/self.neg_avg_trans_log_likelihood)
+        self.br_ball_ph = tf.placeholder(tf.float32, (), name='br_ball')
+        self.llt_weighted_td_err = self.td_err_sgq * self.neg_avg_trans_log_likelihood
+        self.lla_weighted_td_err = tf.maximum(self.td_err_sgt, self.br_ball_ph) * self.neg_avg_act_log_likelihood
+        self.kl_ball_ph = tf.placeholder(tf.float32, (), name='kl_ball')
+        self.kl_weighted_td_err = self.td_err * tf.maximum(self.bidirectional_KL, self.kl_ball_ph)
+        self.kl_combo = tf.maximum(self.td_err, self.br_ball_ph) * tf.maximum(self.bidirectional_KL, self.kl_ball_ph) * self.neg_avg_act_log_likelihood
+        self.kl_hinge = tf.maximum((self.bidirectional_KL / self.kl_ball_ph) - 1, 0)
+
 
         # True Qs for testing
         self.test_q_obs_t_feats_ph = tf.placeholder(tf.int32, [None, n_obs_feats], name="tqotf")
@@ -266,16 +328,17 @@ class InverseDynamicsLearner():
         self.loss_fns = np.array([self.neg_avg_act_log_likelihood, self.neg_avg_trans_log_likelihood,
                          self.td_err, self.td_err_sgq, self.td_err_sgt, self.llt_weighted_td_err, self.lqsafer,
                          self.lla_weighted_td_err, self.bidirectional_KL, self.kl_weighted_td_err,
-                         self.kl_combo]) #, self.true_q_err])
-        self.loss_fns_titles = np.array(['nall', 'ntll', 'tde', 'tde_sg_q', 'tde_sg_t', 'llt_tde', 'lqsafe', 'lla_tde',
-                                         'trans_kl_dist', 'kl_tde', 'kl']) #, 'true_q_err'])
+                         self.kl_hinge, self.pi_td_err, self.pi_td_err_sgq, self.pi_td_err_sgt, self.learned_observed_q_diff]) #, self.true_q_err])
+        self.loss_fns_titles = np.array(['nall', 'ntll', 'tde', 'tde_t', 'tde_q', 'llt_tde', 'lqsafe', 'lla_tde',
+                                         'trans_kl_dist', 'kl_tde', 'kl', 'pi_tde', 'pi_tde_t', 'pi_tde_q', 'loqd']) #, 'true_q_err'])
 
-        self.log_losses = self.loss_fns[[0,1,2,5,8]]
-        self.log_loss_titles = self.loss_fns_titles[[0,1,2,5,8]]
+        self.log_losses = self.loss_fns[[0,1,2,11,14,8]]
+        self.log_loss_titles = self.loss_fns_titles[[0,1,2,11,14,8]]
 
         self.regime = None
         self.validation_freq = None
         self.kl_ball_schedule = None
+        self.br_ball_schedule = None
 
 
     def initialize_training_regime(self, regime, regime_params, validation_freq=20):
@@ -288,11 +351,13 @@ class InverseDynamicsLearner():
         self.regime = regime
         self.validation_freq = validation_freq
         self.kl_ball_schedule = regime_params.get('kl_ball_schedule', None)
+        self.br_ball_schedule = regime_params.get('br_ball_schedule', None)
 
         if regime == "weighted":
             losses = regime_params['losses']
             loss_weights = regime_params['loss_weights']
             assert len(losses) == len(loss_weights)
+            assert not any(['observed' in title for title in self.loss_fns_titles[losses]])
             self.weighted_loss = sum([self.loss_fns[losses[i]] * loss_weights[i] for i in range(len(losses))])
             self.log_losses = np.append(self.log_losses, [self.weighted_loss])
             self.log_loss_titles = np.append(self.log_loss_titles, ["weighted_loss"])
@@ -312,6 +377,7 @@ class InverseDynamicsLearner():
             self.improvement_proportions = regime_params["improvement_proportions"]
             self.prev_bests = [np.inf for _ in range(len(self.improvement_proportions))]
             self.switch_frequency = regime_params["switch_frequency"]
+            self.observed_updates_progression = regime_params.get('observed_updates_progression', None)
             self.model_save_loss = sum(self.log_losses * np.array(regime_params["model_save_weights"]))
             # Update progression is a list of list of ints in the range(len(self.loss_fns))
             self.loss_progression = [sum(self.loss_fns[config]) for config in regime_params["update_progression"]]
@@ -361,10 +427,15 @@ class InverseDynamicsLearner():
 
         assert(self.regime is not None)
 
+        # Have to put up here before variables are initialized
         if dyn_pretrain_iters > 0:
-            temp_update1 = tf.train.AdamOptimizer(self.alpha, self.beta1, self.beta2).minimize(
+            temp_ntll_update = tf.train.AdamOptimizer(self.alpha, self.beta1, self.beta2).minimize(
                 self.neg_avg_trans_log_likelihood)
-            temp_update2 = tf.train.AdamOptimizer(self.alpha, self.beta1, self.beta2).minimize(self.td_err_sgt)
+            temp_nall_update = tf.train.AdamOptimizer(self.alpha, self.beta1, self.beta2).minimize(
+                self.neg_avg_act_log_likelihood)
+            temp_q_update = tf.train.AdamOptimizer(self.alpha, self.beta1, self.beta2).minimize(self.td_err_sgt)
+            temp_pi_q_update = tf.train.AdamOptimizer(self.alpha, self.beta1, self.beta2).minimize(self.pi_td_err_sgt)
+
 
         tf.global_variables_initializer().run(session=self.sess)
 
@@ -403,35 +474,40 @@ class InverseDynamicsLearner():
 
         if self.kl_ball_schedule is not None:
             val_feed[self.kl_ball_ph] = self.kl_ball_schedule(train_time)
+        if self.br_ball_schedule is not None:
+            val_feed[self.br_ball_ph] = self.br_ball_schedule(train_time)
 
         if dyn_pretrain_iters > 0:
             print("Pretraining the dynamics model with baseline method.")
             for i in range(int(dyn_pretrain_iters/2)):
                 demo_batch = sample_batch(rollouts, train_idxes, batch_size)
                 feed_dict = self._get_feed_dict(demo_batch, constraints)
-                self.sess.run(temp_update1, feed_dict=feed_dict)
-
-                if i % self.validation_freq == 0:
-                    val_loss = self.sess.run(self.neg_avg_trans_log_likelihood, feed_dict=val_feed)
-
+                self.sess.run(temp_ntll_update, feed_dict=feed_dict)
                 if i % 1000 == 0:
+                    val_loss = self.sess.run(self.neg_avg_trans_log_likelihood, feed_dict=val_feed)
                     print("{} Transition Loss: {}".format(i, val_loss))
             self.sess.run(self.update_baseline_fn)
+            for i in range(int(dyn_pretrain_iters/2)):
+                demo_batch = sample_batch(rollouts, train_idxes, batch_size)
+                feed_dict = self._get_feed_dict(demo_batch, constraints)
+                self.sess.run(temp_nall_update, feed_dict=feed_dict)
+                if i % 1000 == 0:
+                    val_loss = self.sess.run(self.neg_avg_act_log_likelihood, feed_dict=val_feed)
+                    print("{} Observed Policy Learning Loss: {}".format(i, val_loss))
+            self.sess.run(self.update_observed_policy_fn)
             for i in range(dyn_pretrain_iters+1):
                 demo_batch = sample_batch(rollouts, train_idxes, batch_size)
                 feed_dict = self._get_feed_dict(demo_batch, constraints)
-                cqs, _ = self.sess.run([self.constraint_qs_t, temp_update2], feed_dict=feed_dict)
-
-                if i % self.validation_freq == 0:
-                    val_loss = self.sess.run(self.td_err_sgt, feed_dict=val_feed)
+                cqs, pcqs, _, _ = self.sess.run([self.constraint_qs_t, self.pi_constraint_qs_t,
+                                                 temp_q_update, temp_pi_q_update], feed_dict=feed_dict)
 
                 if i % target_update_freq == 0:
-                    self.sess.run(self.update_target_fn)
+                    self.sess.run([self.update_target_fn, self.update_pi_target_fn])
 
                 if i % 1000 == 0:
-                    print("{} Q-Learning Loss: {}".format(i, val_loss))
-                    print(np.max(cqs), np.min(cqs))
-
+                    val_loss, pi_val_loss = self.sess.run([self.td_err_sgt, self.pi_td_err_sgt], feed_dict=val_feed)
+                    print("{} Q-Learning Losses: {} \t {}".format(i, val_loss, pi_val_loss))
+                    print(np.max(cqs), np.min(cqs), np.max(pcqs), np.min(pcqs))
 
         try:
 
@@ -472,6 +548,10 @@ class InverseDynamicsLearner():
                     feed_dict[self.kl_ball_ph] = self.kl_ball_schedule(train_time)
                     val_feed[self.kl_ball_ph] = self.kl_ball_schedule(train_time)
 
+                if self.br_ball_schedule is not None:
+                    feed_dict[self.br_ball_ph] = self.br_ball_schedule(train_time)
+                    val_feed[self.br_ball_ph] = self.br_ball_schedule(train_time)
+
                 if self.regime == "weighted":
                     # loss_data = self.sess.run(list(self.log_losses) + [self.update], feed_dict=feed_dict)[:-1]
                     self.sess.run(self.update, feed_dict=feed_dict)
@@ -508,21 +588,19 @@ class InverseDynamicsLearner():
                     total_loss = []
 
                 if train_time % target_update_freq == 0:
-                    self.sess.run(self.update_target_fn)
+                    self.sess.run([self.update_target_fn, self.update_pi_target_fn])
 
             # Do some Q-learning post-touches
             for i in range(int(dyn_pretrain_iters/4)):
                 demo_batch = sample_batch(rollouts, train_idxes, batch_size)
                 feed_dict = self._get_feed_dict(demo_batch, constraints)
-                cqs, _ = self.sess.run([self.constraint_qs_t, temp_update2], feed_dict=feed_dict)
-
-                if i % self.validation_freq == 0:
-                    val_loss = self.sess.run(self.td_err_sgt, feed_dict=val_feed)
+                cqs, _ = self.sess.run([self.constraint_qs_t, temp_q_update], feed_dict=feed_dict)
 
                 if i % target_update_freq == 0:
                     self.sess.run(self.update_target_fn)
 
                 if i % 1000 == 0:
+                    val_loss = self.sess.run(self.td_err_sgt, feed_dict=val_feed)
                     print("{} Q-Learning Loss: {}".format(i, val_loss))
                     print(np.max(cqs), np.min(cqs))
 
@@ -534,8 +612,8 @@ class InverseDynamicsLearner():
                                                                     self.demo_act_t_ph: adt_samples[:,1][np.newaxis].T})[0]
                     adt_probs = softmax(adt_logits)
                     adt_probs = adt_probs.reshape(self.mdp.tile_types, self.mdp.num_actions, self.mdp.num_directions)
-                    pkl.dump(q_vals, open(os.path.join(tab_model_out_dir, 'q_vals_{}.pkl'.format(train_time)), 'wb'))
-                    pkl.dump(adt_probs, open(os.path.join(tab_model_out_dir, 'adt_probs_{}.pkl'.format(train_time)), 'wb'))
+                    pkl.dump(q_vals, open(os.path.join(tab_model_out_dir, 'q_vals_{}.pkl'.format(train_time+i)), 'wb'))
+                    pkl.dump(adt_probs, open(os.path.join(tab_model_out_dir, 'adt_probs_{}.pkl'.format(train_time+i)), 'wb'))
                     if self.regime == "coordinate":
                         _run.log_scalar("coordinate_regime", "Q_tuning", train_time + i)
 
@@ -574,6 +652,8 @@ class InverseDynamicsLearner():
 
         if switch:
             self.prev_bests[self.curr_update_index] = np.inf
+            if self.observed_updates_progression[self.curr_update_index]:
+                self.sess.run(self.update_observed_policy_fn)
             self.curr_update_index = (self.curr_update_index + 1) % len(self.update_progression)
             print("Loss improvement at {}, switching to loss config {}".format(improvement, self.curr_update_index))
             self.curr_loss = self.loss_progression[self.curr_update_index]

@@ -13,6 +13,7 @@ tile_map = [
         "1FFFFFFF2"
     ]
 
+
 tile_map2 = [
         "FFFFFFFF1",
         "FFFFFFFFF",
@@ -41,11 +42,11 @@ TILE_MAPS = {0: tile_map,
              1: tile_map2,
              2: tile_map3}
 
-tile_rewards = {'F':0.05,
-              '1':0.1,
-              '2':0.1,
-              '3':0.1,
-              'S':0.01,
+tile_rewards = {'F':0.0,
+              '1':0.0,
+              '2':0.0,
+              '3':0.0,
+              'S':0.0,
               'U':0.0}
 
 
@@ -57,7 +58,7 @@ goal_tile_rewards = {'F':0.0,
               'U':0.0}
 
 t0 = (0.6,0.2,0.0,0.0)
-t1 = (0.001,0.0,0.0,0.999)  #(0.1,0.15,0.5,0.1)
+t1 = (0.0,0.0,0.0,1.0)  #(0.1,0.15,0.5,0.1)
 
 trans_dict = {b'F':t0,
               b'1':t0,
@@ -97,7 +98,7 @@ def get_mdp(tile_map_index):
                                                goal_tile_rewards, tile_reward_modifier)
     return MarsExplorerEnv(tile_map, reward_map, texture_map, trans_dict, time_penalty)
 
-def get_mdp_from_map(tile_map):
+def get_mdp_from_map(tile_map, trans_dict=trans_dict):
     reward_map, texture_map = build_reward_map(tile_map, tile_rewards,
                                                goal_tile_rewards, tile_reward_modifier)
     return MarsExplorerEnv(tile_map, reward_map, texture_map, trans_dict, time_penalty)

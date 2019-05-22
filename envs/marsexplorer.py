@@ -99,28 +99,26 @@ class MarsExplorerEnv(DiscreteEnv):
         num_states = nrow * ncol
         self.num_directions = 5
 
-        # flat_desc = desc.flatten()
-        # nonGoalChars = b'BFUS'
-        # # goalChars = [key for key in transition_dict.keys() if key not in nonGoalChars]
-        # goalIndexes = []
-        # for i, char in enumerate(flat_desc):
-        #     if char not in nonGoalChars:
-        #         goalIndexes += [i]
 
-        # nGoalTypes = len(goalChars)
-        # self.feature_map = np.zeros((nS, nGoalTypes + 1))
-        # self.feature_map[:,0] = texture_map.flatten()
-        # self.feature_map[goalIndexes, 0] = 0.0
+        # Featurization of Used for when reward is unknown
+        flat_desc = desc.flatten()
+        goal_chars = b'123'
+        non_goal_chars = b'BFUS'
+
+        n_goal_types = len(goal_chars)
+        self.feature_map = np.zeros((num_states, n_goal_types))
+        for s, char in enumerate(flat_desc):
+            if char not in non_goal_chars:
+                feat_idx = int(char)
+                self.feature_map[s, feat_idx-1] = 1.0
+
 
         # TODO include tile map such that this is a feasible thing to construct
         # self.thetas = np.zeros((nA, nA, self.tile_types))
         # for t in range(self.tile_types):
         #     self.thetas[0,:,t] =
 
-        # for s in goalIndexes:
-        #     char = flat_desc[s]
-        #     feat_idx = int(char)
-        #     self.feature_map[s, feat_idx] = 1
+
 
         def to_s(row, col):
             return row*ncol + col

@@ -37,7 +37,7 @@ def default_config():
 
     #tab Config
     batch_size = 256
-    n_training_iters = 1000
+    n_training_iters = 500
 
     tab_save_freq = 25
 
@@ -50,6 +50,16 @@ def default_config():
     clustering_iterations = 10
     mdp_num = 0
 
+    t0 = (0.6, 0.2, 0.0, 0.0)
+    t1 = (0.0, 0.0, 0.0, 1.0)  # (0.1,0.15,0.5,0.1)
+
+    trans_dict = {b'F': t0,
+                  b'1': t0,
+                  b'2': t0,
+                  b'3': t0,
+                  b'S': t0,
+                  b'U': t1}
+
     if random_mdp:
         mdp_map = make_map(map_height, map_width, clustering_iterations, seed)
     else:
@@ -57,19 +67,21 @@ def default_config():
 
     verbose = True
 
+    serd=True
+
 
 
 
 
 @tab_model_train_ex.automain
-def tab_train(_run, mdp_map, gamma, alpha, boltz_beta, gamma_demo, temp_boltz_beta, n_demos, demo_time_steps,
-              n_training_iters, batch_size, tab_save_freq, seed, verbose):
+def tab_train(_run, mdp_map, trans_dict, gamma, alpha, boltz_beta, gamma_demo, temp_boltz_beta, n_demos, demo_time_steps,
+              n_training_iters, batch_size, tab_save_freq, seed, verbose, serd):
 
     # q_scope, dyn_scope = load_scopes(data_dir)
 
-    mdp = get_mdp_from_map(mdp_map)
+    mdp = get_mdp_from_map(mdp_map, trans_dict)
 
-    model = TabularInverseDynamicsLearner(mdp, gamma, boltz_beta, alpha=alpha, seed=seed)
+    model = TabularInverseDynamicsLearner(mdp, serd, gamma, boltz_beta, alpha=alpha, seed=seed)
 
     train_sas, train_adt, val_sas, val_adt, true_qs = get_demos(mdp, gamma_demo, temp_boltz_beta, n_demos,
                                                                 demo_time_steps, seed, tabular=True)

@@ -76,6 +76,10 @@ def default_config():
     # update_weights = [[1.],[1.],[10000,1.]]
     model_save_weights = [1.0, 1.0, 1.0, 0.0, 0.0]
 
+    kl_ball_schedule = logarithmic_schedule(-1.0, -5.0, n_training_iters)
+    # kl_ball_schedule = lambda t: 2e-2
+    observed_updates_progression = [False, False, False, False]
+
     tab_save_freq = 250
     clip_global = True
 
@@ -85,15 +89,28 @@ def default_config():
 
     random_mdp = False
 
+
     map_height = 15
     map_width = 15
     clustering_iterations = 10
     mdp_num = 0
 
+    t0 = (0.6, 0.2, 0.0, 0.0)
+    t1 = (1.0, 0.0, 0.0, 0.0)  # (0.1,0.15,0.5,0.1)
+
+    trans_dict = {b'F': t0,
+                  b'1': t0,
+                  b'2': t0,
+                  b'3': t0,
+                  b'S': t0,
+                  b'U': t1}
+
     if random_mdp:
         mdp_map = make_map(map_height, map_width, clustering_iterations, map_seed)
     else:
         mdp_map = get_tile_map(mdp_num)
+
+
 
 @coordinate_model_train_ex.named_config
 def concise_boi():
@@ -104,10 +121,10 @@ def concise_boi():
     horizons=2500
     switch_frequency = 500
     alphas = [5e-3, 1e-3, 5e-3]
-    improvement_proportions = [-np.inf, -np.inf, 0.5]  # [0.1, -1, 0.1]
+    improvement_proportions = [np.inf, np.inf, 0.01]  # [0.1, -1, 0.1]
     # Config made up of ['nall', 'ntll', 'tde', 'tde_sg_q', 'tde_sg_t']
     update_progression = [[0], [5], [4]]  # [[0],[5],[4],[7]] #[[4],[0,4,5]]
-    model_save_weights = [0.0, 0.0, 1.0, 0.0, 0.0]
+    model_save_weights = [0.0, 0.0, 1.0, 0.0, 0.0,0.0]
 
 @coordinate_model_train_ex.named_config
 def safer_concise_boi():
@@ -172,8 +189,8 @@ def kl_boi():
     dyn_layer_norm = False
     q_layer_norm = False
     weight_norm = True
-    mellowmax = 50
-    lse_softmax = None
+    mellowmax = None
+    lse_softmax = 50
     n_training_iters = 200000
     kl_ball_schedule = logarithmic_schedule(-1.0, -5.0, n_training_iters)
     # kl_ball_schedule = lambda t: 2e-2
@@ -182,9 +199,32 @@ def kl_boi():
     switch_frequency = 500
     alphas = [5e-3, 1e-3, 5e-3]
     improvement_proportions = [0.1, 0.1, 0.01]  # [0.1, -1, 0.1]
-    # Config made up of ['nall', 'ntll', 'tde', 'tde_sg_q', 'tde_sg_t']
+    # Config made up of 'nall', 'ntll', 'tde', 'tde_t', 'tde_q', 'llt_tde', 'lqsafe', 'lla_tde',
+    #                   'trans_kl_dist', 'kl_tde', 'kl', 'observed_tde', 'observed_tde_t', 'observed_tde_q'
     update_progression = [[0], [9], [4]]  # [[0],[5],[4],[7]] #[[4],[0,4,5]]
     model_save_weights = [0.0, 0.0, 1.0, 0.0, 1.0]
+
+
+@coordinate_model_train_ex.named_config
+def observer_boi():
+    dyn_layer_norm = False
+    q_layer_norm = False
+    weight_norm = True
+    mellowmax = None
+    lse_softmax = 50
+    n_training_iters = 200000
+    kl_ball_schedule = logarithmic_schedule(-1.0, -5.0, n_training_iters)
+    # kl_ball_schedule = lambda t: 2e-2
+    observed_updates_progression = [True, False, False, False]
+
+    horizons = [10, 20, 40, 40]
+    switch_frequency = 5
+    alphas = [5e-3, 5e-3, 1e-3, 5e-3]
+    improvement_proportions = [0.1, 0.1, 0.1, 0.1]  # [0.1, -1, 0.1]
+    # Config made up of 'nall', 'ntll', 'tde', 'tde_t', 'tde_q', 'llt_tde', 'lqsafe', 'lla_tde',
+    #                   'trans_kl_dist', 'kl_tde', 'kl', 'observed_tde', 'observed_tde_t', 'observed_tde_q'
+    update_progression = [[0], [13], [9], [4]]  # [[0],[5],[4],[7]] #[[4],[0,4,5]]
+    model_save_weights = [0.0, 0.0, 1.0, 0.0, 1.0, 1.0]
 
 @coordinate_model_train_ex.named_config
 def kl_combo_boi():
@@ -202,14 +242,35 @@ def kl_combo_boi():
     update_progression = [[0], [3], [9], [4]]  # [[0],[5],[4],[7]] #[[4],[0,4,5]]
     model_save_weights = [0.0, 0.0, 1.0, 0.0, 1.0]
 
+@coordinate_model_train_ex.named_config
+def last_ditch_boi():
+    dyn_layer_norm = False
+    q_layer_norm = False
+    weight_norm = True
+    mellowmax = None
+    lse_softmax = 50
+
+    horizons = [500, 2000]
+    switch_frequency = 500
+    alphas = [1e-3, 5e-3]
+    n_training_iters = 200000
+    kl_ball_schedule = logarithmic_schedule(-1.0, -5.0, n_training_iters)
+    improvement_proportions = [np.inf, np.inf, 0.01]  # [0.1, -1, 0.1]
+    # Config made up of
+    # ['nall', 'ntll', 'tde', 'tde_t', 'tde_q', 'llt_tde', 'lqsafe', 'lla_tde',
+    # 'trans_kl_dist', 'kl_tde', 'kl', 'pi_tde', 'pi_tde_t', 'pi_tde_q', 'loqd']
+    update_progression = [[14,9], [4,13]]  # [[0],[5],[4],[7]] #[[4],[0,4,5]]
+    model_save_weights = [0.0, 0.0, 1.0, 0.0, 1.0, 0.0]
+
+
 
 
 @coordinate_model_train_ex.automain
-def coordinate_train(_run, mdp_map, gamma, alpha, beta1, beta2, constraint_batch_size, q_n_layers, q_layer_size, q_activation,
+def coordinate_train(_run, mdp_map, trans_dict, gamma, alpha, beta1, beta2, constraint_batch_size, q_n_layers, q_layer_size, q_activation,
             q_output_activation, q_layer_norm, target_update_freq, dyn_n_layers, dyn_layer_size, dyn_activation,
             dyn_output_activation, dyn_layer_norm, weight_norm, boltz_beta, mellowmax, lse_softmax, gamma_demo, temp_boltz_beta, n_demos,
             demo_time_steps, n_training_iters, dyn_pretrain_iters, batch_size, horizons, alphas, improvement_proportions, kl_ball_schedule,
-            switch_frequency, initial_update, update_progression, model_save_weights, tab_save_freq, clip_global, gpu_num, seed):
+            switch_frequency, observed_updates_progression, initial_update, update_progression, model_save_weights, tab_save_freq, clip_global, gpu_num, seed):
 
     os_setup(gpu_num)
     tf.reset_default_graph()
@@ -219,7 +280,7 @@ def coordinate_train(_run, mdp_map, gamma, alpha, beta1, beta2, constraint_batch
     tf_config.gpu_options.allow_growth = True
     sess = tf.Session(config=tf_config)
 
-    mdp = get_mdp_from_map(mdp_map)
+    mdp = get_mdp_from_map(mdp_map, trans_dict)
 
 
 
@@ -248,7 +309,8 @@ def coordinate_train(_run, mdp_map, gamma, alpha, beta1, beta2, constraint_batch
                          'model_save_weights': model_save_weights,
                          'alphas': alphas,
                          'clip_global':clip_global,
-                         'kl_ball_schedule': kl_ball_schedule}
+                         'kl_ball_schedule': kl_ball_schedule,
+                         'observed_updates_progression': observed_updates_progression}
 
         model.initialize_training_regime("coordinate", regime_params=regime_params)
 

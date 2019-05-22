@@ -134,6 +134,77 @@ def tabsoftq_T_grad_iter(mdp, T_thetas, Q, R, gamma, boltzmann=10000, maxiter=50
     return G - expG_broad
 
 
+def tabsoftq_TR_grad_iter(mdp, T_thetas, Q, R, gamma, boltzmann=10000, maxiter=5000, learning_rate=1,
+                          G_init=None, ftol=1e-10):
+
+    nS, nA = Q.shape
+
+    T_theta_dim = T_thetas.shape[0] * T_thetas.shape[1] * T_thetas.shape[2]
+    D = T_thetas.shape[1]
+    R_theta_dim = mdp.feature_map.shape[1]
+
+
+    P_broad = tabsoftq_gen_pol_probs(Q).reshape((nS, nA, 1))
+    Tps = softmax(T_thetas, axis=1)
+
+    T = mdp.adt_trans_to_sas_trans(Tps)
+
+    V = logsumexp(Q * boltzmann, axis=1) / boltzmann
+
+    R_grad = T.dot(mdp.feature_map)
+    T_grad = np.zeros((nS, nA, T_theta_dim))
+    GR = np.zeros((nS, nA, R_theta_dim)) if G_init is None else G_init[0]
+    prevGR = copy(GR)
+
+    for s in range(nS):
+        t = mdp.get_tile_type(s)
+        for a in range(nA):
+            P_at = Tps[a, :, t]
+            V_t = np.array([V[mdp.sd_to_sprime(s, d)] for d in range(D)])
+            R_t = np.array([R[mdp.sd_to_sprime(s, d)] for d in range(D)])
+            VR_t = R_t + gamma * V_t
+            D_probs = np.stack([P_at for _ in range(D)])
+            grad_at = np.dot((np.eye(D) - D_probs), VR_t)
+            grad_at = np.dot(np.diag(P_at), grad_at)
+            filler = np.zeros(T_thetas.shape)
+            filler[a, :, t] = grad_at
+            filler = filler.flatten()
+            T_grad[s, a] = filler
+
+    GT = T_grad if G_init is None else G_init[1]
+    T_broad = T.reshape((nS, nA, nS, 1))
+    prevGT = copy(GT)
+
+
+    for iter_idx in range(maxiter):
+        # Reward Param gradient iteration
+        expGR = np.sum(P_broad * GR, axis=1)
+        expGR_broad = expGR.reshape((1, 1, nS, R_theta_dim))
+        GR = R_grad + gamma * np.sum(T_broad * expGR_broad, axis=2)
+        GR = (1 - learning_rate) * prevGR + learning_rate * GR
+
+        # Transition Param grad iter
+        expGT = np.sum(P_broad * GT, axis=1)
+        expGT_broad = expGT.reshape((1, 1, nS, T_theta_dim))
+        GT = gamma * T_grad
+        t_expGT = np.sum(T_broad * expGT_broad, axis=2)
+        GT += gamma * t_expGT
+        GT = (1 - learning_rate) * prevGT + learning_rate * GT
+
+        diff = np.mean((GR - prevGR) ** 2) / (np.std(GR) ** 2) + np.mean((GT - prevGT) ** 2) / (np.std(GT) ** 2)
+
+        if diff < ftol:
+            break
+        prevGR = copy(GR)
+        prevGT = copy(GT)
+
+    expGR = np.sum(P_broad * GR, axis=1)
+    expGR_broad = expGR.reshape((nS, 1, R_theta_dim))
+    expGT = np.sum(P_broad * GT, axis=1)
+    expGT_broad = expGT.reshape((nS, 1, T_theta_dim))
+    return (GR - expGR_broad), (GT - expGT_broad)
+
+
 def eval_pol_likelihood(Q, sas_obs):
     ll = 0.0
     for obs in sas_obs:
@@ -179,6 +250,20 @@ def eval_T_pol_likelihood_and_grad(mdp, T_thetas, R, sas_obs, gamma, Q_inits=Non
     dT = np.sum(dT[s,a], axis=0).reshape(T_thetas.shape) / len(sas_obs)
     ll = eval_pol_likelihood(Q, sas_obs)
     return ll, dT, Q
+
+def eval_TR_pol_likelihood_and_grad(mdp, T_thetas, R, sas_obs, gamma, Q_inits=None):
+    s = [obs[0] for obs in sas_obs]
+    a = [obs[1] for obs in sas_obs]
+    Tps = softmax(T_thetas,axis=1)
+    T = mdp.adt_trans_to_sas_trans(Tps)
+    if Q_inits is None:
+        Q_inits = np.zeros((mdp.num_states, mdp.num_actions))
+    Q = tabsoftq_iter(R, T, gamma, Q_init=Q_inits)
+    dR, dT = tabsoftq_TR_grad_iter(mdp, T_thetas, Q, R, gamma)
+    dR = np.sum(dR[s,a], axis=0).reshape(mdp.feature_map.shape[1]) / len(sas_obs)
+    dT = np.sum(dT[s,a], axis=0).reshape(T_thetas.shape) / len(sas_obs)
+    ll = eval_pol_likelihood(Q, sas_obs)
+    return ll, dT, dR, Q
 
 
 def get_T_tab_shape(mdp):
