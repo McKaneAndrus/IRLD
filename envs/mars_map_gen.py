@@ -18,7 +18,7 @@ TILE_MAXES = {'S': 0.1,
               '3': 0.01}
 
 TILE_PROXIMITY_BOOST = {'F':0.5,
-                        'U':0.1}
+                        'U':0.3}
 
 DEFAULT_WEIGHT = 1.0
 
@@ -67,8 +67,28 @@ def make_map(height, width, clustering_iterations = 0, seed=0):
             tile_map[index] = np.random.choice(exchange_chars, p=weights)
 
     tile_proportions = {tt: len(np.nonzero(tile_map == tt)[0]) / total for tt in TILE_TYPES}
-    #print(tile_proportions)
-    #print(tile_map)
+
+    # Remove pits s.t. <= 1 pit is cardinally adjacent to any S or F, to prevent
+    # too much slipping in demos.
+    indexes = np.nonzero(np.isin(tile_map, ['S', 'F']))
+    indexes = list(zip(indexes[0], indexes[1]))
+    np.random.shuffle(indexes)
+    for index in indexes:
+        adjacents = _get_all_cardinal_adjacent_tiles(tile_map, index[0], index[1])
+        num_start_adj_pits = adjacents['U']
+        while num_start_adj_pits > 1:
+            hdelta = np.random.randint(3) - 1
+            wdelta = np.random.randint(3) - 1
+            if abs(hdelta) == abs(wdelta):
+                continue
+            if tile_map[(index[0]+hdelta)%height, (index[1]+wdelta)%width] == 'U':
+                tile_map[(index[0]+hdelta)%height, (index[1]+wdelta)%width] = 'F'
+                num_start_adj_pits -= 1
+
+
+    tile_proportions = {tt: len(np.nonzero(tile_map == tt)[0]) / total for tt in TILE_TYPES}
+    # print('tile_prop', tile_proportions)
+    # print(tile_map)
     string_tile_map = ["".join(row) for row in tile_map]
     np.random.set_state(random_state)
     return string_tile_map
@@ -94,6 +114,20 @@ def _get_all_adjacent_tiles(tile_map, h, w):
     height, width = len(tile_map), len(tile_map[0])
     for hdelta in range(-1, 2):
         for wdelta in range(-1, 2):
+            hprime = (h+hdelta) % height
+            wprime = (w+wdelta) % width
+            adjacents += [tile_map[hprime][wprime]]
+    return Counter(adjacents)
+
+
+def _get_all_cardinal_adjacent_tiles(tile_map, h, w):
+    adjacents = []
+    height, width = len(tile_map), len(tile_map[0])
+    for hdelta in range(-1, 2):
+        for wdelta in range(-1, 2):
+            # Skip the diagonals and tile iteslf
+            if abs(hdelta) == abs(wdelta):
+                continue
             hprime = (h+hdelta) % height
             wprime = (w+wdelta) % width
             adjacents += [tile_map[hprime][wprime]]

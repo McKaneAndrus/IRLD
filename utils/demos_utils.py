@@ -15,7 +15,7 @@ def clean_demos(sas_obs, adt_obs, max_noops):
         if sas[1] == 4:
             stay_count += 1
             if sas in unique_stays:
-                if stay_count > max_noops:
+                if max_noops and stay_count > max_noops:
                     demo_example_idxes.remove(i)
             else:
                 unique_stays.add(sas)
@@ -25,7 +25,7 @@ def clean_demos(sas_obs, adt_obs, max_noops):
     return demo_example_idxes
 
 
-def get_demos(mdp, gamma, temp_boltz_beta, n_demos, demo_time_steps, seed=0, max_noops=50, tabular=False):
+def get_demos(mdp, gamma, temp_boltz_beta, n_demos, demo_time_steps, seed=0, max_noops=None, tabular=False):
     np.random.seed(seed)
     random.seed(seed)
     exQs = tabsoftq_learn_Qs(mdp, gamma=gamma)
