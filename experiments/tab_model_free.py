@@ -64,34 +64,34 @@ ROVER_PNGS = {LEFT:"resources/rover_left.png",
 #         "3UUFUFFU1"
 #     ]
 
-tile_map = [
-        "F22222FF1",
-        "U31122FU1",
-        "UF1112FU1",
-        "UFUU1SFU1",
-        "UFFU1FFU3",
-        "3222UFS1U",
-        "UUU22F1FU",
-        "FSSFS12SF",
-        "FSFF121FF",
-        "S1S2SFFSF",
-        "FUUUFFSFU",
-        "U3UUUFSFU",
-        "FFFUUFUUU"
-    ]
-
-
 # tile_map = [
-#         "2FFFUFFF1",
-#         "FFFUUUFFF",
-#         "FFFFUFFFF",
-#         "FSFUUUFSF",
-#         "FSUU3UUSF",
-#         "FSFUUUFSF",
-#         "FFFFUFFFF",
-#         "FFFSSSFFF",
-#         "1FFFFFFF2"
+#         "F22222FF1",
+#         "U31122FU1",
+#         "UF1112FU1",
+#         "UFUU1SFU1",
+#         "UFFU1FFU3",
+#         "3222UFS1U",
+#         "UUU22F1FU",
+#         "FSSFS12SF",
+#         "FSFF121FF",
+#         "S1S2SFFSF",
+#         "FUUUFFSFU",
+#         "U3UUUFSFU",
+#         "FFFUUFUUU"
 #     ]
+
+
+tile_map = [
+        "2FFFUFFF1",
+        "FFFUUUFFF",
+        "FFFFUFFFF",
+        "FSFUUUFSF",
+        "FSUU3UUSF",
+        "FSFUUUFSF",
+        "FFFFUFFFF",
+        "FFFSSSFFF",
+        "1FFFFFFF2"
+    ]
 
 # tile_map = [
 #   "SFFFUFFFSFUUFFU",
@@ -211,7 +211,7 @@ batch_size = 200
 n_demos = 80
 demo_time_steps = 40
 
-mdp = MarsExplorerEnv(tile_map, reward_map, texture_map, trans_dict, time_penalty)
+mdp = MarsExplorerEnv(tile_map, reward_map, texture_map, trans_dict, time_penalty, seed=1)
 nA = mdp.num_actions
 nS = mdp.num_states
 
@@ -274,7 +274,7 @@ def generate_demonstrations(mdp, pol, n, term):
         s, d, t = mdp._reset(), False, 0
         hist = []
         while not d and t < term:
-            a = pol[s] if type(pol) == np.ndarray else pol(s)
+            a = pol(s)
             sprime, rt, _, ob_dict = mdp._step(a)
             hist += [((s,a,sprime),ob_dict['adt'])]
             t += 1
@@ -509,7 +509,7 @@ def eval_TR_pol_likelihood_and_grad(T_thetas, R, feat_map, sas_obs, Q_inits=None
     ll = eval_pol_likelihood(Q, sas_obs)
     return ll, dT, dR, Q
 
-def clean_demos(sas_obs, adt_obs, max_noops=50):
+def clean_demos(sas_obs, adt_obs, max_noops=100):
     demo_example_idxes = list(range(len(sas_obs)))
     unique_stays, stay_count = set([]), 0
     for i,(sas,adt) in enumerate(zip(sas_obs,adt_obs)):
@@ -570,7 +570,7 @@ def true_trans_loss(tps):
 learning_rate = 5.0
 
 #DEMO Config
-n_demos = 200
+n_demos = 50
 demo_time_steps = 40
 
 #tab Config
@@ -589,21 +589,22 @@ if __name__ == "__main__":
 
 
     seed = int(sys.argv[1])
+    label = sys.argv[2] + "_" + sys.argv[1]
     print(seed)
 
     random.seed(seed)
     np.random.seed(seed)
+
     # q_scope, dyn_scope = load_scopes(data_dir)
 
     # now= datetime.now()
-    label = "tab_" + str(round(time.time()))
 
     print("Starting Experiment " + label)
 
     out_dir = os.path.join("logs", "models", label)
     sacred_dir = os.path.join("logs", "sacred", label)
 
-    metric_names = ["val_likelihoods", "val_nall", "val_ntll"]
+    metric_names = ["val_likelihoods", "val_nall", "val_ntll", "val_tde"]
     metrics = {key: {"steps" : [], "values" : []} for key in metric_names}
 
     exQs = tabsoftq_learn_Qs(mdp)
@@ -669,6 +670,8 @@ if __name__ == "__main__":
             metrics["val_nall"]["values"] += [-vp_ll]
             metrics["val_ntll"]["steps"] += [train_time]
             metrics["val_ntll"]["values"] += [-vt_ll]
+            metrics["val_tde"]["steps"] += [train_time]
+            metrics["val_tde"]["values"] += [0.0]
 
             if train_time % tab_save_freq == 0:
                 if verbose:

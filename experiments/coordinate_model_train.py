@@ -222,10 +222,10 @@ def observer_boi():
     observed_policy=True
 
 
-    horizons = [10, 20, 40, 40]
+    horizons = [500, 500, 500, 2000]
     switch_frequency = 5
     alphas = [5e-3, 5e-3, 1e-3, 5e-3]
-    improvement_proportions = [0.1, 0.1, 0.1, 0.1]  # [0.1, -1, 0.1]
+    improvement_proportions = [0.1, 0.001, 0.1, 0.001]  # [0.1, -1, 0.1]
     # Config made up of 'nall', 'ntll', 'tde', 'tde_t', 'tde_q', 'llt_tde', 'lqsafe', 'lla_tde',
     #                   'trans_kl_dist', 'kl_tde', 'kl', 'observed_tde', 'observed_tde_t', 'observed_tde_q'
     update_progression = [[0], [13], [9], [4]]  # [[0],[5],[4],[7]] #[[4],[0,4,5]]
