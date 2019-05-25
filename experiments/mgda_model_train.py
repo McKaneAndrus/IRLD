@@ -47,6 +47,8 @@ def default_config():
     # Setting it to higher values corresponds to "pure rationality"
     boltz_beta = 50
     mellowmax = None
+    lse_softmax = None
+
 
     #DEMO Config
     gamma_demo = 0.99
@@ -59,8 +61,8 @@ def default_config():
     n_training_iters = 150000
     dyn_pretrain_iters = 10000
 
-
-    loss_configurations = [[1,4],[6,5]]
+    observed_policy=False
+    loss_configurations = [[0,1],[2]]
 
     tab_save_freq = 200
 
@@ -71,19 +73,29 @@ def default_config():
     clustering_iterations = 10
     mdp_num = 0
 
+    t0 = (0.6, 0.2, 0.0, 0.0)
+    t1 = (0.0, 0.0, 0.0, 1.0)
+    trans_dict = {b'F': t0,
+                  b'1': t0,
+                  b'2': t0,
+                  b'3': t0,
+                  b'S': t0,
+                  b'U': t1}
+
+    seed = 0
     if random_mdp:
         mdp_map = make_map(map_height, map_width, clustering_iterations, seed)
     else:
         mdp_map = get_tile_map(mdp_num)
-    seed = 0
     gpu_num = 0
 
 
 @mgda_model_train_ex.automain
-def mgda_train(_run, mdp_map, gamma, alpha, beta1, beta2, constraint_batch_size, q_n_layers, q_layer_size, q_activation,
-            q_output_activation, q_layer_norm, target_update_freq, dyn_n_layers, dyn_layer_size, dyn_activation,
-            dyn_output_activation, dyn_layer_norm, boltz_beta, mellowmax, gamma_demo, temp_boltz_beta, n_demos,
-            demo_time_steps, n_training_iters, dyn_pretrain_iters, batch_size, loss_configurations, tab_save_freq, seed, gpu_num):
+def mgda_train(_run, mdp_map, trans_dict, gamma, alpha, beta1, beta2, constraint_batch_size, q_n_layers, q_layer_size,
+            q_activation, q_output_activation, q_layer_norm, target_update_freq, dyn_n_layers, dyn_layer_size,
+            dyn_activation, dyn_output_activation, dyn_layer_norm, boltz_beta, observed_policy, mellowmax, lse_softmax,
+            gamma_demo, temp_boltz_beta, n_demos, demo_time_steps, n_training_iters, dyn_pretrain_iters, batch_size,
+            loss_configurations, tab_save_freq, seed, gpu_num):
 
     os_setup(gpu_num)
     tf.reset_default_graph()
@@ -92,7 +104,7 @@ def mgda_train(_run, mdp_map, gamma, alpha, beta1, beta2, constraint_batch_size,
     tf_config = tf.ConfigProto()
     tf_config.gpu_options.allow_growth = True
     sess = tf.Session(config=tf_config)
-    mdp = get_mdp_from_map(mdp_map)
+    mdp = get_mdp_from_map(mdp_map, trans_dict)
 
     mlp_params = {'q_n_layers':q_n_layers,
                   'q_layer_size':q_layer_size,
@@ -106,7 +118,8 @@ def mgda_train(_run, mdp_map, gamma, alpha, beta1, beta2, constraint_batch_size,
                   'dyn_layer_norm': dyn_layer_norm}
 
     model = InverseDynamicsLearner(mdp, sess, mlp_params=mlp_params, boltz_beta=boltz_beta, gamma=gamma,
-                                mellowmax=mellowmax, alpha=alpha, beta1=beta1, beta2=beta2, seed=seed) #, q_scope=q_scope, dyn_scope=dyn_scope)
+                                lse_softmax=lse_softmax, mellowmax=mellowmax, observed_policy=observed_policy,
+                                alpha=alpha, beta1=beta1, beta2=beta2, seed=seed) #, q_scope=q_scope, dyn_scope=dyn_scope)
 
     regime_params = {'loss_configurations':loss_configurations}
     model.initialize_training_regime("MGDA", regime_params=regime_params)

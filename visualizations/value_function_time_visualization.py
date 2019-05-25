@@ -47,6 +47,20 @@ def plot_q_vals(q_val, plt, ax, fig, plot_title='', num_rows=1, num_cols=1, num_
     if plot_title:
         plt.title(plot_title, weight='bold')
 
+    plt.tick_params(
+        which='both',
+        left=False,
+        right=False,
+        bottom=False,
+        top=False,
+        labelbottom=False,
+        labelleft=False)
+
+
+    # ax.set_xticks(np.arange(num_rows) - .5)
+    # ax.set_yticks(np.arange(num_cols) - .5)
+    # ax.set_xticklabels([])
+    # ax.set_yticklabels([])
     q_val = q_val.reshape([num_rows, num_cols, num_actions])
     max_val = np.max(q_val, axis=2)
     softmaxed_val = np.max(softmax(q_val, axis=2), axis=2)
@@ -77,7 +91,7 @@ def plot_q_vals(q_val, plt, ax, fig, plot_title='', num_rows=1, num_cols=1, num_
     cax = divider.append_axes("left", size="5%", pad=0.15)
     cbar = fig.colorbar(imshow, cax=cax, ticks=[np.min(max_val), np.max(max_val)])
     cbar.ax.yaxis.set_ticks_position('left')
-    cbar.ax.set_yticklabels([np.min(max_val).round(2), np.max(max_val).round(2)])
+    cbar.ax.set_yticklabels(['Min Q-Val', 'Max Q-Val'])
 
 def plot_dynamics(dyn_model, plt, ax, fig, plot_title=''):
     if plot_title:
@@ -132,7 +146,7 @@ def agg_plot(data, plot_fn, plot_fn_kwargs, regime_order, regimes, num_regime_ro
         last_col = col
     plt.savefig(out_file)
 
-def visualize_temporal_value_function(q_val_dyn_list, mdp, show_art, out_dir, metrics, coordinate):
+def visualize_temporal_value_function(q_val_dyn_list, mdp, show_art, out_dir, metrics, coordinate, final_only):
     """This creates a grid of grid-world layouts representing the Q-values.
 
     Args:
@@ -141,6 +155,9 @@ def visualize_temporal_value_function(q_val_dyn_list, mdp, show_art, out_dir, me
         q_val_labels: Human-readable labels associated with the first dimension of q_val_data above.
         out_file: A local path to where the visualization should be saved.
     """
+
+    if final_only:
+        q_val_dyn_list = [q_val_dyn_list[-1]]
     # Because I don't know matplotlib well enough to create multiple figures simultaneously,
     # we're going to generate the aggregate figures after-the-fact.
     last_regime, curr_regime = None, None
@@ -188,7 +205,6 @@ def visualize_temporal_value_function(q_val_dyn_list, mdp, show_art, out_dir, me
         if coordinate and step_num in regime_steps:
             curr_regime = regime_steps[step_num]
             plot_title += " " + curr_regime
-
             if last_regime != curr_regime:
                 prev_q_val, prev_dyn_model = prev_iter
                 if curr_regime not in regime_order:
@@ -202,6 +218,8 @@ def visualize_temporal_value_function(q_val_dyn_list, mdp, show_art, out_dir, me
                         num_regime_rows += 1
             last_regime = curr_regime
 
+        if final_only:
+            plot_title = ""
         ax = fig.add_subplot(1, 2, 1)
         plot_q_vals(q_val, plt, ax, fig, plot_title=plot_title, num_rows=num_rows, num_cols=num_cols, num_actions=num_actions)
 
@@ -228,6 +246,7 @@ def config():
     out_dir = "logs/generated_images_"
     show_art = True
     coordinate = False
+    final_only = False
 
     _ = locals()  # quieten flake8 unused variable warning
     del _
@@ -260,7 +279,7 @@ def load_single_exp_data(experiment_num):
 
 
 @value_function_visualization.automain
-def main(out_dir, _run, experiment_num, show_art, coordinate):
+def main(out_dir, _run, experiment_num, show_art, coordinate, final_only):
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 
@@ -268,4 +287,4 @@ def main(out_dir, _run, experiment_num, show_art, coordinate):
     q_val_dyn_list, mdp = load_single_exp_data(experiment_num)
     out_dir = os.path.join(out_dir, "{}_temporal_value_function_vis_{}".format(experiment_num, _run._id))
     os.makedirs(out_dir)
-    visualize_temporal_value_function(q_val_dyn_list, mdp, show_art, out_dir, metrics, coordinate)
+    visualize_temporal_value_function(q_val_dyn_list, mdp, show_art, out_dir, metrics, coordinate, final_only)

@@ -19,7 +19,7 @@ value_function_visualization.observers.append(FileStorageObserver.create('logs/s
 
 
 MAP_COLORS = {b'F': "#ffffff", # Normal Square
-              b'S': "#ffffff", # Normal Square
+              b'S': "#dddddd", # Normal Square
               b'U': "#000000", # Pit
               b'1': "reward", # Reward Square
               b'2': "reward", # Reward Square
@@ -82,11 +82,12 @@ def visualize_value_function(q_val_list, mdp, q_val_labels, show_art, out_file):
 
         legend_colors = [
             Rectangle((0, 0), 1, 1, facecolor=MAP_COLORS[b'F'], edgecolor='#000000'),
+            Rectangle((0, 0), 1, 1, facecolor=MAP_COLORS[b'S'], edgecolor='#000000'),
             Rectangle((0, 0), 1, 1, facecolor=MAP_COLORS[b'U'], edgecolor='#000000'),
             Rectangle((0, 0), 1, 1, facecolor=cm.get_cmap('Blues')(min_reward / max_reward), edgecolor='#000000'),
             Rectangle((0, 0), 1, 1, facecolor=cm.get_cmap('Blues')(1.), edgecolor='#000000'),
         ]
-        leg = cax.legend(legend_colors, ['Regular', 'Pit', 'Low Reward', 'High Reward'], fontsize=20)
+        leg = cax.legend(legend_colors, ['Land', 'Start (Land)', 'Pit', 'Low Reward', 'High Reward'], fontsize=20)
         leg.get_frame().set_edgecolor('#000000')
 
     for i, q_val in enumerate(q_val_list):
@@ -134,16 +135,16 @@ def visualize_value_function(q_val_list, mdp, q_val_labels, show_art, out_file):
         imshow = plt.imshow(max_val, cmap='gray')
 
         # Weird hardcoding for the poster, yay!
-        if i + i_offset == 2:
-            divider = make_axes_locatable(sub_ax)
-            cax = divider.append_axes("left", size="5%", pad=0.15)
-            cbar = fig.colorbar(imshow, cax=cax, ticks=[np.min(max_val), np.max(max_val)])
-            cbar.ax.yaxis.set_ticks_position('left')
-            cbar.ax.set_yticklabels(['Min Q-Val', 'Max Q-Val'], fontsize=20)
-        else:
-            divider = make_axes_locatable(sub_ax)
-            cax = divider.append_axes("left", size="5%", pad=0.15)
-            cax.set_axis_off()
+        # if i + i_offset == 2:
+        divider = make_axes_locatable(sub_ax)
+        cax = divider.append_axes("left", size="5%", pad=0.15)
+        cbar = fig.colorbar(imshow, cax=cax, ticks=[np.min(max_val), np.max(max_val)])
+        cbar.ax.yaxis.set_ticks_position('left')
+        cbar.ax.set_yticklabels([round(np.min(max_val),1), round(np.max(max_val),1)], fontsize=20)
+        # else:
+        #     divider = make_axes_locatable(sub_ax)
+        #     cax = divider.append_axes("left", size="5%", pad=0.15)
+        #     cax.set_axis_off()
 
     plt.savefig(out_file, bbox_inches='tight')
 

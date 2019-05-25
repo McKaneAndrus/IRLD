@@ -64,7 +64,7 @@ def default_config():
     loss_weights = [1.0, 1.0, 0.001, 1.0]
 
     tab_save_freq = 500
-    clip_global = 100
+    clip_global = 5
 
     seed = 0
     gpu_num = 0
@@ -133,6 +133,22 @@ def ungodly_boi():
     alpha = 2e-3
     losses = [14, 2, 11, 10]
     loss_weights = [1.0, 1.0, 1.0, 1.0]
+
+@weighted_model_train_ex.named_config
+def basic_boi():
+
+    lse_softmax = 100
+    n_training_iters = 200000
+    kl_ball_schedule = logarithmic_schedule(-1.0, -5.0, n_training_iters)
+    # br_ball_schedule = logarithmic_schedule(3.0, -5.0, n_training_iters)
+
+
+    temp_boltz_beta = 500
+    boltz_beta = 500
+
+    alpha = 2e-3
+    losses = [0, 1, 2]
+    loss_weights = [1.0, 1.0, 1.0]
 
 
 

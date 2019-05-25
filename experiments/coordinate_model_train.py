@@ -83,7 +83,7 @@ def default_config():
 
 
     tab_save_freq = 250
-    clip_global = True
+    clip_global = 5
 
     seed = 0
     map_seed = 1
@@ -98,7 +98,7 @@ def default_config():
     mdp_num = 0
 
     t0 = (0.6, 0.2, 0.0, 0.0)
-    t1 = (1.0, 0.0, 0.0, 0.0)  # (0.1,0.15,0.5,0.1)
+    t1 = (0.0, 0.0, 0.0, 1.0)  # (0.1,0.15,0.5,0.1)
 
     trans_dict = {b'F': t0,
                   b'1': t0,
@@ -288,6 +288,27 @@ def test_tde_t():
     # ['nall', 'ntll', 'tde', 'tde_t', 'tde_q', 'llt_tde', 'lqsafe', 'lla_tde',
     # 'trans_kl_dist', 'kl_tde', 'kl', 'pi_tde', 'pi_tde_t', 'pi_tde_q', 'loqd']
     update_progression = [[0], [3], [4]]  # [[0],[5],[4],[7]] #[[4],[0,4,5]]
+    model_save_weights = [0.0, 0.0, 1.0, 0.0]
+    dyn_pretrain_iters = 10000
+
+@coordinate_model_train_ex.named_config
+def baseline():
+    dyn_layer_norm = False
+    q_layer_norm = False
+    weight_norm = True
+    mellowmax = None
+    lse_softmax = 50
+
+    horizons = [20000]
+    switch_frequency = 500
+    alphas = [5e-3]
+    n_training_iters = 20000
+    kl_ball_schedule = logarithmic_schedule(-1.0, -5.0, n_training_iters)
+    improvement_proportions = [np.inf]  # [0.1, -1, 0.1]
+    # Config made up of
+    # ['nall', 'ntll', 'tde', 'tde_t', 'tde_q', 'llt_tde', 'lqsafe', 'lla_tde',
+    # 'trans_kl_dist', 'kl_tde', 'kl', 'pi_tde', 'pi_tde_t', 'pi_tde_q', 'loqd']
+    update_progression = [[4]]  # [[0],[5],[4],[7]] #[[4],[0,4,5]]
     model_save_weights = [0.0, 0.0, 1.0, 0.0]
     dyn_pretrain_iters = 10000
 
