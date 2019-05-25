@@ -23,7 +23,7 @@ tab_model_train_ex.add_source_file('envs/environment_setup_utils.py')
 def default_config():
 
     gamma = 0.99
-    alpha = 0.5
+    alpha = 2.0
 
     # Boltz-beta determines the "rationality" of the agent being modeled.
     # Setting it to higher values corresponds to "pure rationality"
@@ -37,9 +37,12 @@ def default_config():
 
     #tab Config
     batch_size = 256
-    n_training_iters = 500
+    n_training_iters = 2000
 
-    tab_save_freq = 25
+    tab_save_freq = 5
+
+    transition_likelihood_weight = 10.0
+    mdp_num=12
 
     seed = 0
 
@@ -48,7 +51,7 @@ def default_config():
     map_height = 15
     map_width = 15
     clustering_iterations = 10
-    mdp_num = 0
+    mdp_num = 12
 
     t0 = (0.6, 0.2, 0.0, 0.0)
     t1 = (0.0, 0.0, 0.0, 1.0)  # (0.1,0.15,0.5,0.1)
@@ -67,15 +70,16 @@ def default_config():
 
     verbose = True
 
-    serd=True
+    serd=False
 
 
 
 
 
 @tab_model_train_ex.automain
-def tab_train(_run, mdp_map, trans_dict, gamma, alpha, boltz_beta, gamma_demo, temp_boltz_beta, n_demos, demo_time_steps,
-              n_training_iters, batch_size, tab_save_freq, seed, verbose, serd):
+def tab_train(_run, mdp_map, trans_dict, gamma, alpha, transition_likelihood_weight, boltz_beta, gamma_demo,
+              temp_boltz_beta, n_demos, demo_time_steps, n_training_iters, batch_size, tab_save_freq, seed,
+              verbose, serd):
 
     # q_scope, dyn_scope = load_scopes(data_dir)
 
@@ -89,7 +93,7 @@ def tab_train(_run, mdp_map, trans_dict, gamma, alpha, boltz_beta, gamma_demo, t
 
     out_dir = os.path.join("logs", "models", str(_run._id))
 
-    model.train(n_training_iters, train_sas, train_adt,  batch_size, val_sas, val_adt, out_dir, _run, true_qs,
-                tab_save_freq, verbose)
+    model.train(n_training_iters, train_sas, train_adt,  batch_size, val_sas, val_adt, out_dir,
+                transition_likelihood_weight, _run, true_qs, tab_save_freq, verbose)
 
     return _run._id

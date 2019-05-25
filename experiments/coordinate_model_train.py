@@ -74,11 +74,13 @@ def default_config():
     initial_update = None
     update_progression = [[0,1,4],[5,4]] #[[0],[5],[4],[7]] #[[4],[0,4,5]]
     # update_weights = [[1.],[1.],[10000,1.]]
-    model_save_weights = [1.0, 1.0, 1.0, 0.0, 0.0]
+    model_save_weights = [1.0, 1.0, 1.0, 0.0]
 
     kl_ball_schedule = logarithmic_schedule(-1.0, -5.0, n_training_iters)
     # kl_ball_schedule = lambda t: 2e-2
     observed_updates_progression = [False, False, False, False]
+    observed_policy=False
+
 
     tab_save_freq = 250
     clip_global = True
@@ -109,6 +111,7 @@ def default_config():
         mdp_map = make_map(map_height, map_width, clustering_iterations, map_seed)
     else:
         mdp_map = get_tile_map(mdp_num)
+
 
 
 
@@ -216,6 +219,8 @@ def observer_boi():
     kl_ball_schedule = logarithmic_schedule(-1.0, -5.0, n_training_iters)
     # kl_ball_schedule = lambda t: 2e-2
     observed_updates_progression = [True, False, False, False]
+    observed_policy=True
+
 
     horizons = [10, 20, 40, 40]
     switch_frequency = 5
@@ -250,6 +255,8 @@ def last_ditch_boi():
     mellowmax = None
     lse_softmax = 50
 
+
+    observed_policy=True
     horizons = [500, 2000]
     switch_frequency = 500
     alphas = [1e-3, 5e-3]
@@ -263,6 +270,27 @@ def last_ditch_boi():
     model_save_weights = [0.0, 0.0, 1.0, 0.0, 1.0, 0.0]
 
 
+@coordinate_model_train_ex.named_config
+def test_tde_t():
+    dyn_layer_norm = False
+    q_layer_norm = False
+    weight_norm = True
+    mellowmax = None
+    lse_softmax = 50
+
+    horizons = [500, 20000, 2000]
+    switch_frequency = 500
+    alphas = [1e-3, 1e-3, 5e-3]
+    n_training_iters = 200000
+    kl_ball_schedule = logarithmic_schedule(-1.0, -5.0, n_training_iters)
+    improvement_proportions = [np.inf, np.inf, np.inf]  # [0.1, -1, 0.1]
+    # Config made up of
+    # ['nall', 'ntll', 'tde', 'tde_t', 'tde_q', 'llt_tde', 'lqsafe', 'lla_tde',
+    # 'trans_kl_dist', 'kl_tde', 'kl', 'pi_tde', 'pi_tde_t', 'pi_tde_q', 'loqd']
+    update_progression = [[0], [3], [4]]  # [[0],[5],[4],[7]] #[[4],[0,4,5]]
+    model_save_weights = [0.0, 0.0, 1.0, 0.0]
+    dyn_pretrain_iters = 10000
+
 
 
 @coordinate_model_train_ex.automain
@@ -270,7 +298,7 @@ def coordinate_train(_run, mdp_map, trans_dict, gamma, alpha, beta1, beta2, cons
             q_output_activation, q_layer_norm, target_update_freq, dyn_n_layers, dyn_layer_size, dyn_activation,
             dyn_output_activation, dyn_layer_norm, weight_norm, boltz_beta, mellowmax, lse_softmax, gamma_demo, temp_boltz_beta, n_demos,
             demo_time_steps, n_training_iters, dyn_pretrain_iters, batch_size, horizons, alphas, improvement_proportions, kl_ball_schedule,
-            switch_frequency, observed_updates_progression, initial_update, update_progression, model_save_weights, tab_save_freq, clip_global, gpu_num, seed):
+            switch_frequency, observed_policy, observed_updates_progression, initial_update, update_progression, model_save_weights, tab_save_freq, clip_global, gpu_num, seed):
 
     os_setup(gpu_num)
     tf.reset_default_graph()
@@ -297,7 +325,8 @@ def coordinate_train(_run, mdp_map, trans_dict, gamma, alpha, beta1, beta2, cons
                   'weight_norm':weight_norm}
 
     with sess.as_default():
-        model = InverseDynamicsLearner(mdp, sess, mlp_params=mlp_params, boltz_beta=boltz_beta, gamma=gamma, lse_softmax=lse_softmax,
+        model = InverseDynamicsLearner(mdp, sess, observed_policy=observed_policy, mlp_params=mlp_params,
+                                       boltz_beta=boltz_beta, gamma=gamma, lse_softmax=lse_softmax,
                                        mellowmax=mellowmax, alpha=alpha, beta1=beta1, beta2=beta2, seed=seed)
                                                                     #, q_scope=q_scope, dyn_scope=dyn_scope)
 

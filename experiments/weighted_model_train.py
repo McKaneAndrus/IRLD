@@ -94,6 +94,9 @@ def default_config():
                   b'S': t0,
                   b'U': t1}
 
+    observed_policy=False
+
+
 
 @weighted_model_train_ex.named_config
 def temperamental_boi():
@@ -137,7 +140,7 @@ def ungodly_boi():
 @weighted_model_train_ex.automain
 def weighted_train(_run, mdp_map, trans_dict, gamma, alpha, beta1, beta2, constraint_batch_size, q_n_layers, q_layer_size, q_activation,
             q_output_activation, q_layer_norm, target_update_freq, dyn_n_layers, dyn_layer_size, dyn_activation,
-            dyn_output_activation, dyn_layer_norm, boltz_beta, mellowmax, lse_softmax, gamma_demo, temp_boltz_beta, n_demos,
+            dyn_output_activation, dyn_layer_norm, observed_policy, boltz_beta, mellowmax, lse_softmax, gamma_demo, temp_boltz_beta, n_demos,
             demo_time_steps, n_training_iters, dyn_pretrain_iters, batch_size, losses, loss_weights, tab_save_freq, kl_ball_schedule,
             br_ball_schedule, clip_global, gpu_num, seed):
 
@@ -164,7 +167,7 @@ def weighted_train(_run, mdp_map, trans_dict, gamma, alpha, beta1, beta2, constr
                   'dyn_layer_norm': dyn_layer_norm}
 
     with sess.as_default():
-        model = InverseDynamicsLearner(mdp, sess, mlp_params=mlp_params, boltz_beta=boltz_beta, gamma=gamma,
+        model = InverseDynamicsLearner(mdp, sess, mlp_params=mlp_params, boltz_beta=boltz_beta, gamma=gamma, observed_policy=observed_policy,
                                     mellowmax=mellowmax, lse_softmax=lse_softmax, alpha=alpha, beta1=beta1, beta2=beta2, seed=seed) #, q_scope=q_scope, dyn_scope=dyn_scope)
 
         regime_params = {"losses": losses,

@@ -84,7 +84,7 @@ def transition_grad(adt, tps):
     return grad_theta_t
 
 
-def tabsoftq_T_grad_iter(mdp, T_thetas, Q, R, gamma, boltzmann=10000, maxiter=5000, learning_rate=1,
+def tabsoftq_T_grad_iter(mdp, T_thetas, Q, R, gamma, boltzmann=10000.0, maxiter=5000, learning_rate=1.0,
                          G_init=None, ftol=1e-10):
 
     nS, nA = Q.shape
@@ -116,6 +116,7 @@ def tabsoftq_T_grad_iter(mdp, T_thetas, Q, R, gamma, boltzmann=10000, maxiter=50
     G = T_grad if G_init is None else G_init
     T_broad = T.reshape((nS, nA, nS, 1))
     prevG = copy(G)
+    diffs = []
     for iter_idx in range(maxiter):
         expG = np.sum(P_broad * G, axis=1)
         expG_broad = expG.reshape((1, 1, nS, T_theta_dim))
@@ -125,6 +126,7 @@ def tabsoftq_T_grad_iter(mdp, T_thetas, Q, R, gamma, boltzmann=10000, maxiter=50
         G = (1 - learning_rate) * prevG + learning_rate * G
 
         diff = np.mean((G - prevG) ** 2) / (np.std(G) ** 2)
+        diffs += [diff]
         if diff < ftol:
             break
         prevG = copy(G)
