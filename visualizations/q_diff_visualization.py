@@ -22,15 +22,17 @@ sns.set(style="darkgrid")
 
 def visualize_q_diff(data, out_file, plot_all):
     all_iters, all_models, true_qs = data
-    plot_iters, q_diffs, experiment_i = [], [], []
+    plot_iters, q_diffs, baseline_q_diffs, experiment_i = [], [], [], []
     for i in range(len(all_iters)):
         iters, models, true_q = all_iters[i], all_models[i], true_qs[i]
+        baseline_q_diffs += [np.linalg.norm(true_q - models[0])] * len(models)
         q_diffs += [np.linalg.norm(true_q - model) for model in models]
         plot_iters += iters
         experiment_i += [i] * len(models)
 
     df = pd.DataFrame(data={
         'q_diffs': q_diffs,
+        'baseline_q_diffs': baseline_q_diffs,
         'experiment_i': experiment_i,
         'step_num': plot_iters})
 
@@ -38,11 +40,13 @@ def visualize_q_diff(data, out_file, plot_all):
     if not plot_all:
         extra_kwargs = {'units': 'experiment_i', 'estimator': None, 'hue': 'experiment_i'}
 
-    plot = sns.lineplot(x='step_num', y='q_diffs', data=df, **extra_kwargs)
+    plot = sns.lineplot(x='step_num', y='q_diffs', data=df, label='IRLD', **extra_kwargs)
+    plot = sns.lineplot(x='step_num', y='baseline_q_diffs', data=df, label='Baseline', **extra_kwargs)
     fig = plot.get_figure()
     plt.title("Difference between Learned and True Q-Values")
     plt.xlabel("Training Iterations")
     plt.ylabel("L2 Distance")
+    plt.legend()
     fig.savefig(out_file)
     plt.clf()
 

@@ -25,9 +25,11 @@ sns.set(style="darkgrid")
 def visualize_dynamics_diff(data, out_file, plot_all):
 
     all_iters, all_models, true_dyns = data
-    plot_iters, observed_diffs, unobserved_diffs, o_to_u_diffs, experiment_i  = [], [], [], [], []
+    plot_iters, observed_diffs, baseline_observed, unobserved_diffs, baseline_unobserved, o_to_u_diffs, experiment_i = [], [], [], [], [], [], []
     for i in range(len(all_iters)):
         iters, models, true_dyn = all_iters[i], all_models[i], true_dyns[i]
+        baseline_observed = [np.linalg.norm(true_dyn[OBSERVED_TTS] - models[0][OBSERVED_TTS])] * len(models)
+        baseline_unobserved = [np.linalg.norm(true_dyn[UNOBSERVED_TTS] - models[0][UNOBSERVED_TTS])] * len(models)
         observed_diffs += [np.linalg.norm(true_dyn[OBSERVED_TTS] - model[OBSERVED_TTS]) for model in models]
         unobserved_diffs += [np.linalg.norm(true_dyn[UNOBSERVED_TTS] - model[UNOBSERVED_TTS]) for model in models]
         o_to_u_diffs += [np.linalg.norm(model[OBSERVED_TTS] - model[UNOBSERVED_TTS]) for model in models]
@@ -35,6 +37,8 @@ def visualize_dynamics_diff(data, out_file, plot_all):
         plot_iters += iters
 
     df = pd.DataFrame(data={
+        'baseline_observed': baseline_observed,
+        'baseline_unobserved': baseline_unobserved,
         'observed_diffs': observed_diffs,
         'unobserved_diffs': unobserved_diffs,
         'o_to_u_diffs': o_to_u_diffs,
@@ -44,18 +48,22 @@ def visualize_dynamics_diff(data, out_file, plot_all):
     extra_kwargs = {}
     if not plot_all:
         extra_kwargs = {'units': 'experiment_i', 'estimator': None, 'hue': 'experiment_i'}
-    plot = sns.lineplot(x='step_num', y='observed_diffs', data=df, **extra_kwargs)
+    plot = sns.lineplot(x='step_num', y='observed_diffs', data=df, label='IRLD', **extra_kwargs)
+    plot = sns.lineplot(x='step_num', y='baseline_observed', data=df, label='Baseline', **extra_kwargs)
     fig = plot.get_figure()
     plt.title("Difference between Learned and True Observed Dynamics")
     plt.xlabel("Training Iterations")
     plt.ylabel("L2 Distance")
+    plt.legend()
     fig.savefig(out_file+"_observed.png")
     plt.clf()
-    plot = sns.lineplot(x='step_num', y='unobserved_diffs', data=df, **extra_kwargs)
+    plot = sns.lineplot(x='step_num', y='unobserved_diffs', label='IRLD', data=df, **extra_kwargs)
+    plot = sns.lineplot(x='step_num', y='baseline_unobserved', data=df, label='Baseline', **extra_kwargs)
     fig = plot.get_figure()
     plt.title("Difference between Learned and True Unobserved Dynamics")
     plt.ylabel("L2 Distance")
     plt.xlabel("Training Iterations")
+    plt.legend()
     fig.savefig(out_file+"_unobserved.png")
     plt.clf()
     plot = sns.lineplot(x='step_num', y='o_to_u_diffs', data=df, **extra_kwargs)
