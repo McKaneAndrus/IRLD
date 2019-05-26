@@ -130,8 +130,9 @@ def ungodly_boi():
     kl_ball_schedule = logarithmic_schedule(-1.0, -5.0, n_training_iters)
     # br_ball_schedule = logarithmic_schedule(3.0, -5.0, n_training_iters)
 
-    alpha = 2e-3
-    losses = [14, 2, 11, 10]
+    observed_policy=True
+    alpha = 1e-3
+    losses = [14, 13, 3, 10]
     loss_weights = [1.0, 1.0, 1.0, 1.0]
 
 @weighted_model_train_ex.named_config
@@ -143,12 +144,46 @@ def basic_boi():
     # br_ball_schedule = logarithmic_schedule(3.0, -5.0, n_training_iters)
 
 
+    temp_boltz_beta = 50
+    boltz_beta = 50
+
+    alpha = 2e-3
+    losses = [0, 1, 2]
+    loss_weights = [1.0, 10000.0, 10000.0]
+
+
+@weighted_model_train_ex.named_config
+def basic_observed_boi():
+
+    lse_softmax = 100
+    n_training_iters = 200000
+    kl_ball_schedule = logarithmic_schedule(-1.0, -5.0, n_training_iters)
+    # br_ball_schedule = logarithmic_schedule(3.0, -5.0, n_training_iters)
+
+
     temp_boltz_beta = 500
     boltz_beta = 500
 
     alpha = 2e-3
-    losses = [0, 1, 2]
-    loss_weights = [1.0, 1.0, 1.0]
+    observed_policy=True
+    losses = [14, 1, 2, 13]
+    loss_weights = [1.0, 1.0, 1.0, 1.0]
+
+@weighted_model_train_ex.named_config
+def split_boi():
+
+    lse_softmax = 100
+    n_training_iters = 200000
+    kl_ball_schedule = logarithmic_schedule(-1.0, -5.0, n_training_iters)
+    # br_ball_schedule = logarithmic_schedule(3.0, -5.0, n_training_iters)
+
+
+    temp_boltz_beta = 50
+    boltz_beta = 50
+
+    alpha = 1e-3
+    losses = [0, 1, 3, 4]
+    loss_weights = [1.0, 1.0, 0.2, 10.0]
 
 
 

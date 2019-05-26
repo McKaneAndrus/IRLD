@@ -129,7 +129,7 @@ class InverseDynamicsLearner():
         # baseline_trans_probs = tf.exp(baseline_trans_log_likelihoods)
 
         trans_probs = tf.gather_nd(tf.nn.softmax(self.pred_obs, axis=1), dir_indexes)
-        trans_log_likelihoods = tf.log(trans_probs)
+        trans_log_likelihoods = tf.log(trans_probs + 1e-40)
 
         baseline_trans_probs = tf.gather_nd(tf.nn.softmax(tf.stop_gradient(self.baseline_pred_obs), axis=1), dir_indexes)
         baseline_trans_log_likelihoods = tf.log(baseline_trans_probs)

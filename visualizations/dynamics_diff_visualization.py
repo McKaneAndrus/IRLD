@@ -25,17 +25,19 @@ sns.set(style="darkgrid")
 def visualize_dynamics_diff(data, out_file, plot_all):
 
     all_iters, all_models, true_dyns = data
-    plot_iters, observed_diffs, unobserved_diffs, experiment_i = [], [], [], []
+    plot_iters, observed_diffs, unobserved_diffs, o_to_u_diffs, experiment_i  = [], [], [], [], []
     for i in range(len(all_iters)):
         iters, models, true_dyn = all_iters[i], all_models[i], true_dyns[i]
         observed_diffs += [np.linalg.norm(true_dyn[OBSERVED_TTS] - model[OBSERVED_TTS]) for model in models]
         unobserved_diffs += [np.linalg.norm(true_dyn[UNOBSERVED_TTS] - model[UNOBSERVED_TTS]) for model in models]
+        o_to_u_diffs += [np.linalg.norm(model[OBSERVED_TTS] - model[UNOBSERVED_TTS]) for model in models]
         experiment_i += [i] * len(models)
         plot_iters += iters
 
     df = pd.DataFrame(data={
         'observed_diffs': observed_diffs,
         'unobserved_diffs': unobserved_diffs,
+        'o_to_u_diffs': o_to_u_diffs,
         'experiment_i': experiment_i,
         'step_num': plot_iters})
 
@@ -56,18 +58,26 @@ def visualize_dynamics_diff(data, out_file, plot_all):
     plt.xlabel("Training Iterations")
     fig.savefig(out_file+"_unobserved.png")
     plt.clf()
+    plot = sns.lineplot(x='step_num', y='o_to_u_diffs', data=df, **extra_kwargs)
+    fig = plot.get_figure()
+    plt.title("Difference between Learned Observed and Unobserved Dynamics")
+    plt.ylabel("L2 Distance")
+    plt.xlabel("Training Iterations")
+    fig.savefig(out_file+"_o_to_u.png")
+    plt.clf()
 
 
 @dynamics_diff_visualization.config
 def config():
     out_dir = "logs/generated_images_"
     plot_all = True
+    cutoff = None
 
     _ = locals()  # quieten flake8 unused variable warning
     del _
 
 
-def load_dynamics(experiment_nums):
+def load_dynamics(experiment_nums, cutoff=None):
 
     all_iters, all_models, true_dyns = [], [], []
     for experiment_num in experiment_nums:
@@ -77,6 +87,8 @@ def load_dynamics(experiment_nums):
         model_files = glob.glob(file_header)
         # Handles files of form %s_%s_%d.pkl, retrieves %d
         iters_models = [(int(file.split("_")[-1].split(".")[0]), pkl.load(open(file, 'rb'))) for file in model_files]
+        if cutoff is not None:
+            iters_models = [iter_model for iter_model in iters_models if iter_model[0] < cutoff]
         iters_models = sorted(iters_models, key=lambda x: x[0])
         iters, models = zip(*iters_models)
         all_iters += [iters]
@@ -87,10 +99,10 @@ def load_dynamics(experiment_nums):
 
 
 @dynamics_diff_visualization.automain
-def main(out_dir, _run, experiment_nums, plot_all):
+def main(out_dir, _run, experiment_nums, plot_all, cutoff):
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 
-    data = load_dynamics(experiment_nums)
+    data = load_dynamics(experiment_nums, cutoff)
     out_file = os.path.join(out_dir, "{}_dynamics_diff_visualization_from_{}".format("_".join(str(x) for x in experiment_nums), _run._id))
     visualize_dynamics_diff(data, out_file, plot_all)

@@ -312,6 +312,48 @@ def baseline():
     model_save_weights = [0.0, 0.0, 1.0, 0.0]
     dyn_pretrain_iters = 10000
 
+@coordinate_model_train_ex.named_config
+def classic_boi():
+    dyn_layer_norm = False
+    q_layer_norm = False
+    weight_norm = True
+    mellowmax = None
+    lse_softmax = 50
+
+    horizons = [500,500,2000]
+    switch_frequency = 500
+    alphas = [5e-3,1e-4,5e-3]
+    n_training_iters = 200000
+    kl_ball_schedule = logarithmic_schedule(-1.0, -5.0, n_training_iters)
+    improvement_proportions = [np.inf, np.inf, 0.01]  # [0.1, -1, 0.1]
+    # Config made up of
+    # ['nall', 'ntll', 'tde', 'tde_t', 'tde_q', 'llt_tde', 'lqsafe', 'lla_tde',
+    # 'trans_kl_dist', 'kl_tde', 'kl', 'pi_tde', 'pi_tde_t', 'pi_tde_q', 'loqd']
+    update_progression = [[0],[3],[1,4]]  # [[0],[5],[4],[7]] #[[4],[0,4,5]]
+    model_save_weights = [0.0, 0.0, 1.0, 0.0]
+    dyn_pretrain_iters = 20000
+
+@coordinate_model_train_ex.named_config
+def kl_thing():
+    dyn_layer_norm = False
+    q_layer_norm = False
+    weight_norm = True
+    mellowmax = None
+    lse_softmax = 50
+
+    horizons = [500,500,2000]
+    switch_frequency = 500
+    alphas = [5e-3,1e-3,5e-3]
+    n_training_iters = 200000
+    kl_ball_schedule = logarithmic_schedule(-2.0, -5.0, n_training_iters)
+    improvement_proportions = [np.inf, np.inf, 0.01]  # [0.1, -1, 0.1]
+    # Config made up of
+    # ['nall', 'ntll', 'tde', 'tde_t', 'tde_q', 'llt_tde', 'lqsafe', 'lla_tde',
+    # 'trans_kl_dist', 'kl_tde', 'kl', 'pi_tde', 'pi_tde_t', 'pi_tde_q', 'loqd']
+    update_progression = [[0],[3, 10],[4]]  # [[0],[5],[4],[7]] #[[4],[0,4,5]]
+    model_save_weights = [0.0, 0.0, 1.0, 0.0]
+    dyn_pretrain_iters = 20000
+
 
 
 @coordinate_model_train_ex.automain
