@@ -6,7 +6,7 @@ atomicwrites==1.2.1
 attrs==18.2.0
 backcall==0.1.0
 -e git+https://github.com/openai/baselines.git@a6b1bc70f156dc45c0da49be8e80941a88021700#egg=baselines
-bleach==1.5.0
+bleach==3.1.4
 -e git+https://github.com/pybox2d/pybox2d.git@3818cf5ddd9485d7932bd3ade7f846557fb3e190#egg=Box2D
 box2d-py==2.3.1
 certifi==2018.4.16
