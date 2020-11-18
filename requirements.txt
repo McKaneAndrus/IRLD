@@ -54,7 +54,7 @@ munch==2.3.2
 nbconvert==5.3.1
 nbformat==4.4.0
 nltk==3.3
-notebook==5.5.0
+notebook==6.1.5
 numpy==1.14.5
 opencv-python==3.4.1.15
 pandas==0.23.1
