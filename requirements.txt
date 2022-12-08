@@ -9,7 +9,7 @@ backcall==0.1.0
 bleach==1.5.0
 -e git+https://github.com/pybox2d/pybox2d.git@3818cf5ddd9485d7932bd3ade7f846557fb3e190#egg=Box2D
 box2d-py==2.3.1
-certifi==2018.4.16
+certifi==2022.12.7
 cffi==1.11.5
 chardet==3.0.4
 click==6.7
